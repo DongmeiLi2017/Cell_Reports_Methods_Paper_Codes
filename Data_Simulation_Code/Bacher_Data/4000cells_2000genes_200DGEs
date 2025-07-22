@@ -1,5 +1,5 @@
 ---
-title: "Simulation with 4000 cells and 2000 genes and 400 DGEs"
+title: "Simulation with 4000 cells and 2000 genes and 200 DGEs"
 author: "Dongmei Li"
 date: "2024-10-01"
 output: html_document
