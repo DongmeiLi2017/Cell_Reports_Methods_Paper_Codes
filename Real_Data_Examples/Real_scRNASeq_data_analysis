@@ -1,0 +1,472 @@
+---
+title: "Real_scRNASeq_analysis"
+author: "Dongmei Li"
+date: "2025-05-07"
+output: html_document
+---
+
+# Set working dir
+
+```{r,echo=F,eval=T,message=F,warning=F,error=F}
+source("/Users/dli3/Library/CloudStorage/Box-Box/Grant_applications/NIH/U54_SenNet/scRNA_Seq_Data/functions.R")
+here::i_am("Real_scRNASeq_data_analysis.rmd")
+print(paste("Current working directory:", here::here()))
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(Seurat)
+library(RColorBrewer)
+library(cowplot)
+library(SeuratData)
+library(patchwork)
+library(ggplot2)
+#install.packages("UpSetR")
+library(UpSetR)
+library(enrichplot)
+library(enrichR)
+library(VennDiagram)
+```
+
+## Use real RNASeq data to test false discovery rate:
+
+```{r, echo=FALSE}
+AvailableData()
+InstallData("pbmc3k")
+?pbmc3k
+citation('pbmc3k.SeuratData')
+pbmc3k <- LoadData("pbmc3k")
+pbmc3k <- NormalizeData(pbmc3k)
+pbmc3k <- FindVariableFeatures(pbmc3k)
+pbmc3k <- ScaleData(pbmc3k)
+
+pbmc3k <- RunPCA(pbmc3k, features = VariableFeatures(object = pbmc3k))
+VizDimLoadings(pbmc3k, dims = 1:2, reduction = "pca")
+DimPlot(pbmc3k, reduction = "pca") + NoLegend()
+DimHeatmap(pbmc3k, dims = 1, cells = 500, balanced = TRUE)
+
+pbmc3k <- FindNeighbors(pbmc3k, dims = 1:10)
+pbmc3k <- FindClusters(pbmc3k, resolution = 0.5)
+
+pbmc3k <- RunUMAP(pbmc3k, dims = 1:10)
+# Assign cell type labels based on clusters
+# You need to modify these assignments if your cluster IDs differ from these defaults
+new.cluster.ids <- c(
+  "CD14+ Monocytes",    # Cluster 0
+  "CD4 T cells",        # Cluster 1
+  "CD4 Memory T cells", # Cluster 2
+  "B cells",            # Cluster 3
+  "CD8 T cells",        # Cluster 4
+  "NK cells",           # Cluster 5
+  "FCGR3A+ Monocytes",  # Cluster 6
+  "Dendritic cells",    # Cluster 7
+  "Megakaryocytes"      # Cluster 8
+)
+
+# Map these new names to the clusters
+names(new.cluster.ids) <- levels(pbmc3k)
+pbmc3k <- RenameIdents(pbmc3k, new.cluster.ids)
+
+# Plot with new labels
+DimPlot(pbmc3k, reduction = "umap", label = TRUE, pt.size = 0.5) + NoLegend()
+
+table(pbmc3k$seurat_annotations)
+# Naive CD4 T Memory CD4 T   CD14+ Mono            B        CD8 T FCGR3A+ Mono           NK 
+#         697          483          480          344          271          162          155 
+#          DC     Platelet 
+#          32           14 
+
+```
+
+## Examine the empirical power of the real scRNASeq data
+
+```{r, echo=FALSE}
+
+# find all markers distinguishing cluster 5 from clusters 0
+##wilcox
+de.wilcox <- FindMarkers(pbmc3k, ident.1 = 5, ident.2 = 0, test.use = "wilcox")
+reject.wilcox <- which(de.wilcox$p_val_adj <= 0.05)
+##wilcox_limma
+de.wilcox_limma <- FindMarkers(pbmc3k, ident.1 = 5, ident.2 = 0, test.use = "wilcox_limma")
+reject.wilcox_limma <- which(de.wilcox_limma$p_val_adj <= 0.05)
+## bimod
+de.bimod <- FindMarkers(pbmc3k, ident.1 = 5, ident.2 = 0, test.use = "bimod")
+reject.bimod <- which(de.bimod$p_val_adj <= 0.05)
+## roc
+de.roc <- FindMarkers(pbmc3k, ident.1 = 5, ident.2 = 0, test.use = "roc")
+reject.roc <- which(de.roc$p_val_adj <= 0.05)
+## t
+de.t <- FindMarkers(pbmc3k, ident.1 = 5, ident.2 = 0, test.use = "t")
+reject.t <- which(de.t$p_val_adj <= 0.05)
+## negbinom
+de.negbinom <- FindMarkers(pbmc3k, ident.1 = 5, ident.2 = 0, test.use = "negbinom")
+reject.negbinom <- which(de.negbinom$p_val_adj <= 0.05)
+## Poisson
+de.poisson <- FindMarkers(pbmc3k, ident.1 = 5, ident.2 = 0, test.use = "poisson")
+reject.poisson <- which(de.poisson$p_val_adj <= 0.05)
+## LR
+de.LR <- FindMarkers(pbmc3k, ident.1 = 5, ident.2 = 0, test.use = "LR")
+reject.LR <- which(de.LR$p_val_adj <= 0.05)
+## MAST
+de.MAST <- FindMarkers(pbmc3k, ident.1 = 5, ident.2 = 0, test.use = "MAST")
+reject.MAST <- which(de.MAST$p_val_adj <= 0.05)
+## DESeq2
+de.DESeq2 <- FindMarkers(pbmc3k, ident.1 = 5, ident.2 = 0, test.use = "DESeq2")
+reject.DESeq2 <- which(de.DESeq2$p_val_adj <= 0.05)
+  
+```
+
+## Gene enrichment analysis of significant genes from DESeq2 using enrichR
+
+```{r, echo=FALSE}
+pbmc3ksig.DESeq2 <- rownames(pbmc3k)[which(de.DESeq2$p_val_adj <= 0.05)]
+
+listEnrichrSites()
+dbs <- listEnrichrDbs()
+dbs1 <- c("Reactome_2022", "GO_Molecular_Function_2021", "GO_Cellular_Component_2021", 
+          "GO_Biological_Process_2021", "PFOCR_Pathways", "WikiPathway_2021_Human", "KEGG_2021_Human",
+          "MAGMA_Drugs_and_Diseases", "HuBMAP_ASCTplusB_augmented_2022", 
+          "Disease_Perturbations_from_GEO_up", "Disease_Perturbations_from_GEO_down")
+
+pbmc3kenriched <- enrichr(pbmc3ksig.DESeq2, dbs1)
+
+summary(pbmc3kenriched)
+
+plotEnrich(pbmc3kenriched$KEGG_2021_Human, showTerms = 20, orderBy = "Adjusted.P.value", title = "KEGG 2021 Human")
+plotEnrich(pbmc3kenriched$GO_Cellular_Component_2021, showTerms = 20, orderBy = "Adjusted.P.value", title = "GO Cellular Component 2021")
+plotEnrich(pbmc3kenriched$GO_Biological_Process_2021, showTerms = 20, orderBy = "Adjusted.P.value", title = "GO Biological Process 2021")
+plotEnrich(pbmc3kenriched$GO_Molecular_Function_2021, showTerms = 20, orderBy = "Adjusted.P.value", title = "GO Molecular Function 2021")
+plotEnrich(pbmc3kenriched$Reactome_2022, showTerms = 20, orderBy = "Adjusted.P.value", title = "Reactome 2022")
+plotEnrich(pbmc3kenriched$GO_Molecular_Function_2021, showTerms = 20, orderBy = "Adjusted.P.value", title = "GO Molecular Function 2021")
+plotEnrich(pbmc3kenriched$GO_Cellular_Component_2021, showTerms = 20, orderBy = "Adjusted.P.value", title = "GO Cellular Component 2021")
+plotEnrich(pbmc3kenriched$GO_Biological_Process_2021, showTerms = 20, orderBy = "Adjusted.P.value", title = "GO Biological Process 2021")
+plotEnrich(pbmc3kenriched$HuBMAP_ASCTplusB_augmented_2022, showTerms = 20, orderBy = "Adjusted.P.value", title = "HuBMAP ASCTplusB augmented 2022")
+plotEnrich(pbmc3kenriched$Disease_Perturbations_from_GEO_up, showTerms = 20, orderBy = "Adjusted.P.value", title = "Disease Perturbations from GEO up")
+plotEnrich(pbmc3kenriched$Disease_Perturbations_from_GEO_down, showTerms = 20, orderBy = "Adjusted.P.value", title = "Disease Perturbations from GEO down")
+plotEnrich(pbmc3kenriched$PFOCR_Pathways, showTerms = 20, orderBy = "Adjusted.P.value", title = "PFOCR_Pathways")
+plotEnrich(pbmc3kenriched$WikiPathway_2021_Human, showTerms = 20, orderBy = "Adjusted.P.value", title = "WikiPathway 2021 Human")
+plotEnrich(pbmc3kenriched$KEGG_2021_Human, showTerms = 20, orderBy = "Adjusted.P.value", title = "KEGG 2021 Human")
+plotEnrich(pbmc3kenriched$MAGMA_Drugs_and_Diseases, showTerms = 20, orderBy = "Adjusted.P.value", title = "MAGMA Drugs and Diseases")
+
+```
+
+## Draw venn diagram
+
+```{r, echo=FALSE}
+
+venn.plot1 <- venn.diagram(x=list("Wilcox" = reject.wilcox, "bimod" = reject.bimod, "t" = reject.t,
+                    "negbinom"= reject.negbinom, "DESeq2" = reject.DESeq2), filename = "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/Venn_plot1.png",
+                    col = "black",
+                    fill = c("dodgerblue", "goldenrod1", "darkorange1", "seagreen3", "orchid3"),
+                    alpha = 0.50,
+                    cex = c(1.5, 1.5, 1.5, 1.5, 1.5, 1, 0.8, 1, 0.8, 1, 0.8, 1, 0.8,
+                            1, 0.8, 1, 0.55, 1, 0.55, 1, 0.55, 1, 0.55, 1, 0.55, 1, 1, 1, 1, 1, 1.5),
+                    cat.col = c("dodgerblue", "goldenrod1", "darkorange1", "seagreen3", "orchid3"),
+                    cat.cex = 0.8,
+                    cat.fontface = "bold",
+                    margin = 0.05)
+
+
+venn.plot2 <- venn.diagram(x=list("Wilcox_limma" = reject.wilcox_limma, "Poisson" = reject.poisson, "LR" = reject.LR,
+                    "MAST"= reject.MAST, "DESeq2" = reject.DESeq2), filename = "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/Venn_plot2.png",
+                    col = "black",
+                    fill = c("dodgerblue", "goldenrod1", "darkorange1", "seagreen3", "orchid3"),
+                    alpha = 0.50,
+                    cex = c(1.5, 1.5, 1.5, 1.5, 1.5, 1, 0.8, 1, 0.8, 1, 0.8, 1, 0.8,
+                            1, 0.8, 1, 0.55, 1, 0.55, 1, 0.55, 1, 0.55, 1, 0.55, 1, 1, 1, 1, 1, 1.5),
+                    cat.col = c("dodgerblue", "goldenrod1", "darkorange1", "seagreen3", "orchid3"),
+                    cat.cex = 0.8,
+                    cat.fontface = "bold",
+                    margin = 0.05)
+
+
+## bar chart for number of significant genes
+
+method <- c("Wilcox", "Wilcox_limma", "bimod", "roc", "t", "negbinom", "Poisson", "LR", "MAST", "DESeq2")
+count <- c(1605, 1605, 3546, 0, 1019, 1549, 1693, 1173, 2854, 555)
+names(count) <- method
+
+colors = c("red", "gold", "lightgreen", "yellow", "violet", "orange", "lightblue", "pink", "cyan4", "coral3") 
+
+par(mfrow=c(1,1), cex=1, mar=c(7, 4, 2, 2)+0.2)
+barplot(count, ylim = c(0, 2000), col=colors, ylab = "Number of significant genes", main = "", las = 2) 
+
+```
+
+## Import the second real data
+
+Another real data from https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE120446 from paper https://insight.jci.org/articles/view/124928#F1
+
+GSM3396161_A: Female 59
+GSM3396185_W: Female 28
+
+```{r, echo=FALSE}
+data_dirs <-
+  c("/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/GSE120221_RAW/GSM3396161_A",
+    "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/GSE120221_RAW/GSM3396185_W"
+    )
+
+data_list <- list()
+for (i in seq_along(data_dirs)){
+  tmp <- Read10X(
+    data_dirs[i],
+    unique.features = TRUE,
+    strip.suffix = FALSE
+  )
+  data_list[i] <- CreateSeuratObject(
+    tmp,
+    assay = "RNA",
+    min.cells = 3,
+    min.features = 200,
+    project = basename(data_dirs[i])
+  )
+}
+
+combined <- merge(
+  x = data_list[[1]],
+  y = data_list[2],
+  add.cell.ids = c("Female_59", "Female_28"),
+  merge.data = TRUE
+)
+
+combined <- JoinLayers(combined)
+table(combined$orig.ident)
+
+rb.genes <- rownames(combined)[grep("^RP[SL][[:digit:]]", rownames(combined))]
+percent.ribo <- colSums(LayerData(combined[rb.genes, ], assay = "RNA", layer = "counts")) / colSums(LayerData(combined, assay = "RNA", layer = "counts")) * 100
+combined <- AddMetaData(combined, percent.ribo, col.name = "percent.ribo")
+
+combined <- PercentageFeatureSet(combined, "^MT-", col.name = "percent.mito")
+
+mito_genes <- rownames(combined)[grep("^MT-", rownames(combined))]
+
+VlnPlot(
+  combined,
+  features = c("nFeature_RNA", "nCount_RNA", "percent.mito", "percent.ribo"),
+  group.by = "orig.ident",
+  ncol = 4,
+  pt.size = 0.1
+)
+
+combined_qc <-
+  subset(
+    combined,
+    subset = 
+      percent.mito < 5 &
+#     percent.ribo < 50 &
+      nFeature_RNA > 200 &
+      nFeature_RNA < 1500 &
+      nCount_RNA < 6000
+  )
+
+VlnPlot(
+  combined_qc,
+  features = c("nFeature_RNA", "nCount_RNA", "percent.mito", "percent.ribo"),
+  group.by = "orig.ident",
+  ncol = 4,
+  pt.size = 0.1
+)
+
+DefaultAssay(combined_qc) <- "RNA"
+combine.list <- SplitObject(combined_qc, split.by = "orig.ident")
+combine.list <- lapply(
+  X = combine.list,
+  FUN = function(x) {
+    x <- NormalizeData(x)
+    x <-
+      FindVariableFeatures(x, selection.method = "vst", nfeatures = 2000)
+  }
+)
+combine.anchors <-
+  FindIntegrationAnchors(object.list = combine.list, dims = 1:30)
+combined_qc <- IntegrateData(anchorset = combine.anchors, dims = 1:30)
+DefaultAssay(combined_qc) <- "integrated"
+combined_qc <- ScaleData(combined_qc, verbose = FALSE)
+combined_qc <- RunPCA(combined_qc, npcs = 30, verbose = FALSE)
+combined_qc <- RunUMAP(combined_qc, reduction = "pca", dims = 1:30, verbose = FALSE)
+combined_qc <- FindNeighbors(combined_qc, reduction = "pca", dims = 1:30, verbose = FALSE)
+combined_qc <- FindClusters(combined_qc, resolution = 0.8, verbose = FALSE)
+
+genes <- rownames(combined_qc[["RNA"]])
+head(genes)
+```
+
+```{r,echo=F,eval=T,message=F,warning=F, fig.height=6, fig.width=8}
+# cell_type_color are built-in colors list from function.R
+DimPlot(combined_qc,
+        reduction = "umap",
+        group.by = "seurat_clusters",
+        cols = cell_type_color,
+        label = T)
+
+```
+
+```{r,echo=F,eval=T,message=F,warning=F, fig.height=4, fig.width=8}
+# This one splits by samples, adjust the figure height and width as needed
+# Create a mapping
+combined_qc$orig.ident.custom <- plyr::mapvalues(
+  combined_qc$orig.ident,
+  from = c("GSM3396161_A", "GSM3396185_W"),  # replace with actual values from your data
+  to = c("Female 59", "Female 28")
+)
+
+
+DimPlot(
+  combined_qc,
+  split.by = "orig.ident",
+  group.by = "seurat_clusters",
+  reduction = "umap",
+  cols = cell_type_color,
+  label = TRUE
+) + ggtitle(NULL)
+
+DimPlot(
+  combined_qc,
+  split.by = "orig.ident.custom",
+  group.by = "seurat_clusters",
+  reduction = "umap",
+  cols = cell_type_color,
+  label = TRUE
+) + ggtitle(NULL)
+
+```
+## Save the preprocessed data
+
+```{r,echo=F,eval=T,message=F,warning=F}
+# We will use combined.qsave for other downstream analysis
+qs::qsave(combined_qc, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/combined_bonemarrow.qsave") 
+```
+
+## only select cluster 1 samples and compare between the old female and young female
+
+```{r, echo=FALSE}
+head(combined_qc@meta.data)
+# Subset cluster 1 cells across both samples
+cluster0_cells <- subset(combined_qc, subset = seurat_clusters == 0 & orig.ident %in% c("GSM3396161_A", "GSM3396185_W"))
+table(cluster0_cells$orig.ident)
+cluster1_sampleA <- subset(combined_qc, subset = seurat_clusters == 1 & orig.ident == "GSM3396161_A")
+cluster1_sampleB <- subset(combined_qc, subset = seurat_clusters == 1 & orig.ident == "GSM3396185_W")
+```
+```{r, echo=FALSE}
+
+# Join the layers for the active assay (e.g., RNA)
+cluster0_cells[["RNA"]] <- JoinLayers(cluster0_cells[["RNA"]])
+cluster0_cells[["RNA"]]@layers  # Should return NULL if layers have been joined
+
+Idents(cluster0_cells) <- "orig.ident"
+levels(cluster0_cells)
+DefaultAssay(cluster0_cells) <- "RNA"
+
+# Checks if two different samples are there in the dataset and each sample has more than 3 cells
+check_analysis <- length(which(as.numeric(table(cluster0_cells$orig.ident)) > 0)) == 2 & length(which(as.numeric((table(cluster0_cells$orig.ident)) > 3) > 0)) == 2
+
+## wilcox
+bone.wilcox <- FindMarkers(cluster0_cells, ident.1 = "GSM3396161_A", ident.2 = "GSM3396185_W", test.use = "wilcox")
+bonereject.wilcox <- which(bone.wilcox$p_val_adj <= 0.05)
+## wilcox_limma
+bone.wilcox_limma <- FindMarkers(cluster0_cells, ident.1 = "GSM3396161_A", ident.2 = "GSM3396185_W", test.use = "wilcox_limma")
+bonereject.wilcox_limma <- which(bone.wilcox_limma$p_val_adj <= 0.05)
+## bimod
+bone.bimod <- FindMarkers(cluster0_cells, ident.1 = "GSM3396161_A", ident.2 = "GSM3396185_W", test.use = "bimod")
+bonereject.bimod <- which(bone.bimod$p_val_adj <= 0.05)
+## roc
+bone.roc <- FindMarkers(cluster0_cells, ident.1 = "GSM3396161_A", ident.2 = "GSM3396185_W", test.use = "roc")
+bonereject.roc <- which(bone.roc$p_val_adj <= 0.05)
+## t
+bone.t <- FindMarkers(cluster0_cells, ident.1 = "GSM3396161_A", ident.2 = "GSM3396185_W", test.use = "t")
+bonereject.t <- which(bone.t$p_val_adj <= 0.05)
+## negbinom
+bone.negbinom <- FindMarkers(cluster0_cells, ident.1 = "GSM3396161_A", ident.2 = "GSM3396185_W", test.use = "negbinom")
+bonereject.negbinom <- which(bone.negbinom$p_val_adj <= 0.05)
+## Poisson
+bone.poisson <- FindMarkers(cluster0_cells, ident.1 = "GSM3396161_A", ident.2 = "GSM3396185_W", test.use = "poisson")
+bonereject.poisson <- which(bone.poisson$p_val_adj <= 0.05)
+## LR
+bone.LR <- FindMarkers(cluster0_cells, ident.1 = "GSM3396161_A", ident.2 = "GSM3396185_W", test.use = "LR")
+bonereject.LR <- which(bone.LR$p_val_adj <= 0.05)
+## MAST
+bone.MAST <- FindMarkers(cluster0_cells, ident.1 = "GSM3396161_A", ident.2 = "GSM3396185_W", test.use = "MAST")
+bonereject.MAST <- which(bone.MAST$p_val_adj <= 0.05)
+## DESeq2
+bone.DESeq2 <- FindMarkers(cluster0_cells, ident.1 = "GSM3396161_A", ident.2 = "GSM3396185_W", test.use = "DESeq2")
+bonereject.DESeq2 <- which(bone.DESeq2$p_val_adj <= 0.05)
+
+```
+
+
+
+```{r, echo=FALSE}
+bonevenn.plot1 <- venn.diagram(x=list("Wilcox" = bonereject.wilcox, "bimod" = bonereject.bimod, "t" = bonereject.t,
+                    "negbinom"= bonereject.negbinom, "DESeq2" = bonereject.DESeq2), filename = "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/boneVenn_plot1.png",
+                    col = "black",
+                    fill = c("dodgerblue", "goldenrod1", "darkorange1", "seagreen3", "orchid3"),
+                    alpha = 0.50,
+                    cex = c(1.5, 1.5, 1.5, 1.5, 1.5, 1, 0.8, 1, 0.8, 1, 0.8, 1, 0.8,
+                            1, 0.8, 1, 0.55, 1, 0.55, 1, 0.55, 1, 0.55, 1, 0.55, 1, 1, 1, 1, 1, 1.5),
+                    cat.col = c("dodgerblue", "goldenrod1", "darkorange1", "seagreen3", "orchid3"),
+                    cat.cex = 0.8,
+                    cat.fontface = "bold",
+                    margin = 0.05)
+
+
+bonevenn.plot2 <- venn.diagram(x=list("Wilcox_limma" = bonereject.wilcox_limma, "Poisson" = bonereject.poisson, "LR" = bonereject.LR,
+                    "MAST"= bonereject.MAST, "DESeq2" = bonereject.DESeq2), filename = "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/boneVenn_plot2.png",
+                    col = "black",
+                    fill = c("dodgerblue", "goldenrod1", "darkorange1", "seagreen3", "orchid3"),
+                    alpha = 0.50,
+                    cex = c(1.5, 1.5, 1.5, 1.5, 1.5, 1, 0.8, 1, 0.8, 1, 0.8, 1, 0.8,
+                            1, 0.8, 1, 0.55, 1, 0.55, 1, 0.55, 1, 0.55, 1, 0.55, 1, 1, 1, 1, 1, 1.5),
+                    cat.col = c("dodgerblue", "goldenrod1", "darkorange1", "seagreen3", "orchid3"),
+                    cat.cex = 0.8,
+                    cat.fontface = "bold",
+                    margin = 0.05)
+
+
+## bar chart for number of significant genes
+
+method <- c("Wilcox", "Wilcox_limma", "bimod", "roc", "t", "negbinom", "Poisson", "LR", "MAST", "DESeq2")
+count <- c(776, 776, 6849, 0, 335, 1068, 1097, 353, 3327, 204)
+names(count) <- method
+
+colors = c("red", "gold", "lightgreen", "yellow", "violet", "orange", "lightblue", "pink", "cyan4", "coral3") 
+
+par(mfrow=c(1,1), cex=1, mar=c(7, 4, 2, 2)+0.2)
+barplot(count, ylim = c(0, 2000), col=colors, ylab = "Number of significant genes", main = "", las = 2) 
+
+
+```
+
+## Gene enrichment analysis of significant genes from DESeq2 using enrichR
+
+```{r, echo=FALSE}
+bonesig.DESeq2 <- rownames(cluster0_cells)[which(bone.DESeq2$p_val_adj <= 0.05)]
+
+listEnrichrSites()
+dbs <- listEnrichrDbs()
+dbs1 <- c("Reactome_2022", "GO_Molecular_Function_2021", "GO_Cellular_Component_2021", 
+          "GO_Biological_Process_2021", "PFOCR_Pathways", "WikiPathway_2021_Human", "KEGG_2021_Human",
+          "MAGMA_Drugs_and_Diseases", "HuBMAP_ASCTplusB_augmented_2022", 
+          "Disease_Perturbations_from_GEO_up", "Disease_Perturbations_from_GEO_down")
+
+boneenriched <- enrichr(bonesig.DESeq2, dbs1)
+
+summary(boneenriched)
+
+plotEnrich(boneenriched$KEGG_2021_Human, showTerms = 20, orderBy = "Adjusted.P.value", title = "KEGG 2021 Human")
+plotEnrich(boneenriched$GO_Cellular_Component_2021, showTerms = 20, orderBy = "Adjusted.P.value", title = "GO Cellular Component 2021")
+plotEnrich(boneenriched$GO_Biological_Process_2021, showTerms = 20, orderBy = "Adjusted.P.value", title = "GO Biological Process 2021")
+plotEnrich(boneenriched$GO_Molecular_Function_2021, showTerms = 20, orderBy = "Adjusted.P.value", title = "GO Molecular Function 2021")
+plotEnrich(boneenriched$Reactome_2022, showTerms = 20, orderBy = "Adjusted.P.value", title = "Reactome 2022")
+plotEnrich(boneenriched$GO_Molecular_Function_2021, showTerms = 20, orderBy = "Adjusted.P.value", title = "GO Molecular Function 2021")
+plotEnrich(boneenriched$GO_Cellular_Component_2021, showTerms = 20, orderBy = "Adjusted.P.value", title = "GO Cellular Component 2021")
+plotEnrich(boneenriched$GO_Biological_Process_2021, showTerms = 20, orderBy = "Adjusted.P.value", title = "GO Biological Process 2021")
+plotEnrich(boneenriched$HuBMAP_ASCTplusB_augmented_2022, showTerms = 20, orderBy = "Adjusted.P.value", title = "HuBMAP ASCTplusB augmented 2022")
+plotEnrich(boneenriched$Disease_Perturbations_from_GEO_up, showTerms = 20, orderBy = "Adjusted.P.value", title = "Disease Perturbations from GEO up")
+plotEnrich(boneenriched$Disease_Perturbations_from_GEO_down, showTerms = 20, orderBy = "Adjusted.P.value", title = "Disease Perturbations from GEO down")
+plotEnrich(boneenriched$PFOCR_Pathways, showTerms = 20, orderBy = "Adjusted.P.value", title = "PFOCR_Pathways")
+plotEnrich(boneenriched$WikiPathway_2021_Human, showTerms = 20, orderBy = "Adjusted.P.value", title = "WikiPathway 2021 Human")
+plotEnrich(boneenriched$KEGG_2021_Human, showTerms = 20, orderBy = "Adjusted.P.value", title = "KEGG 2021 Human")
+plotEnrich(boneenriched$MAGMA_Drugs_and_Diseases, showTerms = 20, orderBy = "Adjusted.P.value", title = "MAGMA Drugs and Diseases")
+
+```
