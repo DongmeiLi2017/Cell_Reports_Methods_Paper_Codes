@@ -44,7 +44,7 @@ sim <- 1
 
 while (sim <= total)
 {
-  count_matrix_file <- paste0("Engel_param_preset_Data/Data_4000_cell_2000_gene_up_20_down_20/", "count_matrix_", sim, "_cell_num_", num_cells, "_subset_num_",       subset_num, "_up_", up_num, "_down_", down_num, ".csv")
+  count_matrix_file <- paste0("Engel_param_preset_Data/Data_4000_cell_2000_gene_up_100_down_100/", "count_matrix_", sim, "_cell_num_", num_cells, "_subset_num_",       subset_num, "_up_", up_num, "_down_", down_num, ".csv")
   count_matrix <- read.csv(count_matrix_file, header = TRUE)
   seurat_obj <- CreateSeuratObject(counts = count_matrix)
   seurat_obj <- NormalizeData(seurat_obj)
@@ -465,7 +465,7 @@ You can also embed plots, for example:
 ```{r plots, echo=FALSE}
 Sparsity <- cbind(wilcox.r[1, ], wilcox_limma.r[1, ], bimod.r[1, ], roc.r[1, ],  t.r[1, ], negbinom.r[1, ], poisson.r[1, ], LR.r[1, ], MAST.r[1, ], DESeq2.r[1, ])
 colnames(Sparsity) <- c("wilcox", "wilcox_limma", "bimod", "roc", "t", "negbinom", "poisson", "LR", "MAST", "DESeq2")
-write.csv(Sparsity, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_4000_cell_2000_gene_up_20_down_20/Sparsity_4000_cell_2000_gene_up_20_down_20.csv")
+write.csv(Sparsity, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_4000_cell_2000_gene_up_100_down_100/Sparsity_4000_cell_2000_gene_up_100_down_100.csv")
 Sparsity.melt <- melt(Sparsity)
 # Define a vector of colors (one for each variable)
 colors <- c("lightblue", "lightgreen", "lightpink", "lightyellow", "lightgray", 
@@ -481,7 +481,7 @@ axis(1, at = 1:nlevels(Sparsity.melt$Var2),
 
 TotalRejection <- cbind(wilcox.r[2, ], wilcox_limma.r[2, ], bimod.r[2, ], roc.r[2, ],  t.r[2, ], negbinom.r[2, ], poisson.r[2, ], LR.r[2, ], MAST.r[2, ], DESeq2.r[2, ])
 colnames(TotalRejection) <- c("wilcox", "wilcox_limma", "bimod", "roc", "t", "negbinom", "poisson", "LR", "MAST", "DESeq2")
-write.csv(TotalRejection, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_4000_cell_2000_gene_up_20_down_20/TotalRejection_4000_cell_2000_gene_up_20_down_20.csv")
+write.csv(TotalRejection, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_4000_cell_2000_gene_up_100_down_100/TotalRejection_4000_cell_2000_gene_up_100_down_100.csv")
 TotalRejection.melt <- melt(TotalRejection)
 # Define a vector of colors (one for each variable)
 colors <- c("lightblue", "lightgreen", "lightpink", "lightyellow", "lightgray", 
@@ -496,7 +496,7 @@ axis(1, at = 1:nlevels(TotalRejection.melt$Var2),
 
 FDR <- cbind(wilcox.r[3, ], wilcox_limma.r[3, ], bimod.r[3, ], roc.r[3, ],  t.r[3, ], negbinom.r[3, ], poisson.r[3, ], LR.r[3, ], MAST.r[3, ], DESeq2.r[3, ])
 colnames(FDR) <- c("wilcox", "wilcox_limma", "bimod", "roc", "t", "negbinom", "poisson", "LR", "MAST", "DESeq2")
-write.csv(FDR, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_4000_cell_2000_gene_up_20_down_20/FDR_4000_cell_2000_gene_up_20_down_20.csv")
+write.csv(FDR, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_4000_cell_2000_gene_up_100_down_100/FDR_4000_cell_2000_gene_up_100_down_100.csv")
 FDR.melt <- melt(FDR)
 # Define a vector of colors (one for each variable)
 colors <- c("lightblue", "lightgreen", "lightpink", "lightyellow", "lightgray", 
@@ -511,7 +511,7 @@ axis(1, at = 1:nlevels(FDR.melt$Var2),
 
 Sensitivity <- cbind(wilcox.r[4, ], wilcox_limma.r[4, ], bimod.r[4, ], roc.r[4, ],  t.r[4, ], negbinom.r[4, ], poisson.r[4, ], LR.r[4, ], MAST.r[4, ], DESeq2.r[4, ])
 colnames(Sensitivity) <- c("wilcox", "wilcox_limma", "bimod", "roc", "t", "negbinom", "poisson", "LR", "MAST", "DESeq2")
-write.csv(Sensitivity, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_4000_cell_2000_gene_up_20_down_20/Sensitivity_4000_cell_2000_gene_up_20_down_20.csv")
+write.csv(Sensitivity, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_4000_cell_2000_gene_up_100_down_100/Sensitivity_4000_cell_2000_gene_up_100_down_100.csv")
 Sensitivity.melt <- melt(Sensitivity)
 # Define a vector of colors (one for each variable)
 colors <- c("lightblue", "lightgreen", "lightpink", "lightyellow", "lightgray", 
@@ -526,7 +526,7 @@ axis(1, at = 1:nlevels(Sensitivity.melt$Var2),
 
 Specificity <- cbind(wilcox.r[5, ], wilcox_limma.r[5, ], bimod.r[5, ], roc.r[5, ],  t.r[5, ], negbinom.r[5, ], poisson.r[5, ], LR.r[5, ], MAST.r[5, ], DESeq2.r[5, ])
 colnames(Specificity) <- c("wilcox", "wilcox_limma", "bimod", "roc", "t", "negbinom", "poisson", "LR", "MAST", "DESeq2")
-write.csv(Specificity, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_4000_cell_2000_gene_up_20_down_20/Specificity_4000_cell_2000_gene_up_20_down_20.csv")
+write.csv(Specificity, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_4000_cell_2000_gene_up_100_down_100/Specificity_4000_cell_2000_gene_up_100_down_100.csv")
 Specificity.melt <- melt(Specificity)
 # Define a vector of colors (one for each variable)
 colors <- c("lightblue", "lightgreen", "lightpink", "lightyellow", "lightgray", 
@@ -541,7 +541,7 @@ axis(1, at = 1:nlevels(Specificity.melt$Var2),
 
 Accuracy <- cbind(wilcox.r[6, ], wilcox_limma.r[6, ], bimod.r[6, ], roc.r[6, ],  t.r[6, ], negbinom.r[6, ], poisson.r[6, ], LR.r[6, ], MAST.r[6, ], DESeq2.r[6, ])
 colnames(Accuracy) <- c("wilcox", "wilcox_limma", "bimod", "roc", "t", "negbinom", "poisson", "LR", "MAST", "DESeq2")
-write.csv(Accuracy, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_4000_cell_2000_gene_up_20_down_20/Accuracy_4000_cell_2000_gene_up_20_down_20.csv")
+write.csv(Accuracy, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_4000_cell_2000_gene_up_100_down_100/Accuracy_4000_cell_2000_gene_up_100_down_100.csv")
 Accuracy.melt <- melt(Accuracy)
 # Define a vector of colors (one for each variable)
 colors <- c("lightblue", "lightgreen", "lightpink", "lightyellow", "lightgray", 
@@ -556,7 +556,7 @@ axis(1, at = 1:nlevels(Accuracy.melt$Var2),
 
 AUC <- cbind(wilcox.r[7, ], wilcox_limma.r[7, ], bimod.r[7, ], roc.r[7, ],  t.r[7, ], negbinom.r[7, ], poisson.r[7, ], LR.r[7, ], MAST.r[7, ], DESeq2.r[7, ])
 colnames(AUC) <- c("wilcox", "wilcox_limma", "bimod", "roc", "t", "negbinom", "poisson", "LR", "MAST", "DESeq2")
-write.csv(AUC, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_4000_cell_2000_gene_up_20_down_20/AUC_4000_cell_2000_gene_up_20_down_20.csv")
+write.csv(AUC, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_4000_cell_2000_gene_up_100_down_100/AUC_4000_cell_2000_gene_up_100_down_100.csv")
 AUC.melt <- melt(AUC)
 # Define a vector of colors (one for each variable)
 colors <- c("lightblue", "lightgreen", "lightpink", "lightyellow", "lightgray", 
@@ -571,7 +571,7 @@ axis(1, at = 1:nlevels(AUC.melt$Var2),
 
 AUPRC <- cbind(wilcox.r[8, ], wilcox_limma.r[8, ], bimod.r[8, ], roc.r[8, ],  t.r[8, ], negbinom.r[8, ], poisson.r[8, ], LR.r[8, ], MAST.r[8, ], DESeq2.r[8, ])
 colnames(AUPRC) <- c("wilcox", "wilcox_limma", "bimod", "roc", "t", "negbinom", "poisson", "LR", "MAST", "DESeq2")
-write.csv(AUPRC, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_4000_cell_2000_gene_up_20_down_20/AUPRC_4000_cell_2000_gene_up_20_down_20.csv")
+write.csv(AUPRC, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_4000_cell_2000_gene_up_100_down_100/AUPRC_4000_cell_2000_gene_up_100_down_100.csv")
 AUPRC.melt <- melt(AUPRC)
 # Define a vector of colors (one for each variable)
 colors <- c("lightblue", "lightgreen", "lightpink", "lightyellow", "lightgray", 
@@ -585,3 +585,4 @@ axis(1, at = 1:nlevels(AUPRC.melt$Var2),
      las = 2, font = 3)  # font=3 for italic, las=2 for vertical labels (optional)
 
 ```
+
