@@ -1,0 +1,104 @@
+---
+title: "Impact of Sparsity on DGE analysis"
+author: "Dongmei Li"
+date: "2024-10-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(SPARSim)
+```
+
+
+```{r cars}
+setwd("/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports")
+load("/Users/dli3/Downloads/Bacher_param_preset.RData")
+## Set a fixed seed for reproducibility of the entire process
+set.seed(123)
+## Define the number of simulations or batches
+num_simulations <- 20  # Adjust the number of simulations as needed
+
+subset_num <- 2000 # this must be a large number and takes values of 2000 for the total number of genes
+up_num <- subset_num * 0.1   # this gives the number of up-regulated genes
+down_num <- subset_num * 0.1  # this gives the number of down-regulated genes
+normal_num <- subset_num - up_num - down_num
+num_cells <- 2000  # This is the number of cells in each group with 400 or 2000 cells in each group
+
+## Loop through each simulation
+for (sim in 1:num_simulations) {
+  
+  ## Set a new random seed for each simulation
+  sim_seed <- 1000 + sim  # You can adjust how you generate sim-specific seeds
+  
+  # Load Bacher parameter preset
+  data(Bacher_param_preset) # Bacher_param_preset
+  
+  # Extract intensity, variability and library size parameters from the first experimental condition of Bacher data    preset (i.e. Bacher_C1)
+  param_preset <- Bacher_param_preset$Bacher_C4
+  intensity <- param_preset$intensity
+  variability <- param_preset$variability
+  lib_size <- param_preset$lib_size
+  
+  start_index <- sample(1:(length(intensity) - subset_num + 1), 1)
+  
+  indices <- start_index:(start_index + subset_num - 1)
+  intensity_subset <- intensity[indices]
+  variability_subset <- variability[indices]
+
+
+  ## STEP 1: Prepare simulation parameters for condition A**
+  cond_A_param <- SPARSim_create_simulation_parameter(
+                                    intensity = intensity_subset, 
+                                    variability = variability_subset, 
+                                    library_size = round(rnorm(n = num_cells, mean = 0.5*10^6, sd = 0.01*10^6)), 
+                                    condition_name = paste0("cond_A_", sim))
+
+
+  ## STEP 2: Prepare fold-change multipliers
+  
+  # not DE genes will have a fold change between 0.25 and 2
+  not_DE_multiplier <- runif(n = normal_num, min = 0.251, max = 3.999)
+  
+  # DE genes will have a fold change less than 0.25 or greater than 4
+  # here we simulate 400 fold-changes lower than 0.25 and 600 fold changes greater than 2
+  DE_multiplier <- c( runif(n = down_num, min = 0.0001, max = 0.25), runif(n = up_num, min = 4, max = 100) )
+  
+  # In this example, the first 1000 genes will be the DE ones, while the last 16128 will be the not DE ones
+ # In this example, the first 1000 genes will be the DE ones, while the last 16128 will be the not DE ones
+  fold_change_multiplier <- c(DE_multiplier, not_DE_multiplier)
+  
+  
+  ## STEP 3: Use SPARSim built-in function to create a simulation parameter with DE genes
+  cond_B_param <- SPARSim_create_DE_genes_parameter(
+                                    sim_param = cond_A_param, 
+                                    fc_multiplier = fold_change_multiplier, 
+                                    N_cells = num_cells,
+                                    condition_name = "cond_B")
+
+  ## STEP 4: Run simulation
+  
+  # Create the global parameter
+  SPARSim_param_with_DE <- list(cond_A = cond_A_param, cond_B = cond_B_param)
+  
+  # Run SPARSim simulation
+  SPARSim_result <- SPARSim_simulation(SPARSim_param_with_DE)
+
+  ## Extract the count matrix from the result
+  count_matrix <- SPARSim_result$count_matrix
+  
+  directory <- "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Bacher_param_preset_Data/Data_4000_cell_2000_gene_up_200_down_200"
+  
+  
+  if (!dir.exists(directory)) {
+    dir.create(directory)
+  }
+    
+    # Construct the file path including the directory
+    count_matrix_file <- file.path(directory, paste0("count_matrix_", sim, "_cell_num_", num_cells, "_subset_num_", subset_num, "_up_", up_num, "_down_", down_num, ".csv"))
+    
+    # Write the CSV file to the specified path
+    write.csv(count_matrix, file = count_matrix_file, row.names = FALSE)
+}
+
+```
