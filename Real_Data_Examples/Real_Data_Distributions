@@ -1,0 +1,526 @@
+---
+title: "Real scRNA-seq Data Density_Plots"
+author: "Dongmei Li"
+date: "2025-05-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(Seurat)
+library(SeuratData)
+library(patchwork)
+library(ggplot2)
+options(warn = -1)
+```
+
+## Import the simulated data
+
+```{r, echo=FALSE}
+Bacher1 <- read.csv("/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Bacher_param_preset_Data/Data_4000_cell_2000_gene_up_20_down_20/count_matrix_1_cell_num_2000_subset_num_2000_up_20_down_20.csv", header = TRUE)
+Bacher2 <- read.csv("/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Bacher_param_preset_Data/Data_4000_cell_2000_gene_up_100_down_100/count_matrix_1_cell_num_2000_subset_num_2000_up_100_down_100.csv", header = TRUE)
+Bacher3 <- read.csv("/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Bacher_param_preset_Data/Data_4000_cell_2000_gene_up_200_down_200/count_matrix_1_cell_num_2000_subset_num_2000_up_200_down_200.csv", header = TRUE)
+
+Engel1 <- read.csv("/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_param_preset_Data/Data_4000_cell_2000_gene_up_20_down_20/count_matrix_1_cell_num_2000_subset_num_2000_up_20_down_20.csv", header = TRUE)
+Engel2 <- read.csv("/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_param_preset_Data/Data_4000_cell_2000_gene_up_100_down_100/count_matrix_1_cell_num_2000_subset_num_2000_up_100_down_100.csv", header = TRUE)
+Engel3 <- read.csv("/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_param_preset_Data/Data_4000_cell_2000_gene_up_200_down_200/count_matrix_1_cell_num_2000_subset_num_2000_up_200_down_200.csv", header = TRUE)
+
+
+Camp1 <- read.csv("/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Camp_param_preset_Data/Data_4000_cell_2000_gene_up_20_down_20/count_matrix_1_cell_num_2000_subset_num_2000_up_20_down_20.csv", header = TRUE)
+Camp2 <- read.csv("/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Camp_param_preset_Data/Data_4000_cell_2000_gene_up_100_down_100/count_matrix_1_cell_num_2000_subset_num_2000_up_100_down_100.csv", header = TRUE)
+Camp3 <- read.csv("/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Camp_param_preset_Data/Data_4000_cell_2000_gene_up_200_down_200/count_matrix_1_cell_num_2000_subset_num_2000_up_200_down_200.csv", header = TRUE)
+```
+
+## Create Seurat Objectives
+
+```{r, echo=FALSE}
+
+Bacher1_obj<- CreateSeuratObject(counts = Bacher1)
+Bacher1_obj<- NormalizeData(Bacher1_obj)
+Bacher1_obj<- FindVariableFeatures(Bacher1_obj)
+Bacher1_obj<- ScaleData(Bacher1_obj)
+
+Bacher2_obj<- CreateSeuratObject(counts = Bacher2)
+Bacher2_obj<- NormalizeData(Bacher2_obj)
+Bacher2_obj<- FindVariableFeatures(Bacher2_obj)
+Bacher2_obj<- ScaleData(Bacher2_obj)
+
+Bacher3_obj<- CreateSeuratObject(counts = Bacher3)
+Bacher3_obj<- NormalizeData(Bacher3_obj)
+Bacher3_obj<- FindVariableFeatures(Bacher3_obj)
+Bacher3_obj<- ScaleData(Bacher3_obj)
+
+Engel1_obj<- CreateSeuratObject(counts = Engel1)
+Engel1_obj<- NormalizeData(Engel1_obj)
+Engel1_obj<- FindVariableFeatures(Engel1_obj)
+Engel1_obj<- ScaleData(Engel1_obj)
+
+Engel2_obj<- CreateSeuratObject(counts = Engel2)
+Engel2_obj<- NormalizeData(Engel2_obj)
+Engel2_obj<- FindVariableFeatures(Engel2_obj)
+Engel2_obj<- ScaleData(Engel2_obj)
+
+Engel3_obj<- CreateSeuratObject(counts = Engel3)
+Engel3_obj<- NormalizeData(Engel3_obj)
+Engel3_obj<- FindVariableFeatures(Engel3_obj)
+Engel3_obj<- ScaleData(Engel3_obj)
+
+Camp1_obj<- CreateSeuratObject(counts = Camp1)
+Camp1_obj<- NormalizeData(Camp1_obj)
+Camp1_obj<- FindVariableFeatures(Camp1_obj)
+Camp1_obj<- ScaleData(Camp1_obj)
+
+Camp2_obj<- CreateSeuratObject(counts = Camp2)
+Camp2_obj<- NormalizeData(Camp2_obj)
+Camp2_obj<- FindVariableFeatures(Camp2_obj)
+Camp2_obj<- ScaleData(Camp2_obj)
+
+Camp3_obj<- CreateSeuratObject(counts = Camp3)
+Camp3_obj<- NormalizeData(Camp3_obj)
+Camp3_obj<- FindVariableFeatures(Camp3_obj)
+Camp3_obj<- ScaleData(Camp3_obj)
+
+```
+
+## Including Plots
+Draw density plots of the simulated data
+
+```{r, echo=TRUE}
+
+Bacher1_counts <- GetAssayData(Bacher1_obj, assay = "RNA", layer = "counts")[15, ]
+ggplot(data.frame(Bacher1_counts), aes(x = Bacher1_counts)) +
+  geom_density(color = "blue", fill = "skyblue", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+Bacher1_norm <- GetAssayData(Bacher1_obj, assay = "RNA", layer = "data")[15, ]
+ggplot(data.frame(Bacher1_norm), aes(x = Bacher1_norm)) +
+  geom_density(color = "blue", fill = "skyblue", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+Bacher2_counts <- GetAssayData(Bacher2_obj, assay = "RNA", layer = "counts")[600, ]
+ggplot(data.frame(Bacher2_counts), aes(x = Bacher2_counts)) +
+  geom_density(color = "blue", fill = "skyblue", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+Bacher2_norm <- GetAssayData(Bacher2_obj, assay = "RNA", layer = "data")[600, ]
+ggplot(data.frame(Bacher2_norm), aes(x = Bacher2_norm)) +
+  geom_density(color = "blue", fill = "skyblue", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+Bacher3_counts <- GetAssayData(Bacher3_obj, assay = "RNA", layer = "counts")[1000, ]
+ggplot(data.frame(Bacher3_counts), aes(x = Bacher3_counts)) +
+  geom_density(color = "blue", fill = "skyblue", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+Bacher3_norm <- GetAssayData(Bacher3_obj, assay = "RNA", layer = "data")[1000, ]
+ggplot(data.frame(Bacher3_norm), aes(x = Bacher3_norm)) +
+  geom_density(color = "blue", fill = "skyblue", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+Engel1_counts <- GetAssayData(Engel1_obj, assay = "RNA", layer = "counts")[10, ]
+ggplot(data.frame(Engel1_counts), aes(x = Engel1_counts)) +
+  geom_density(color = "blue", fill = "darkgoldenrod1", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+Engel1_norm <- GetAssayData(Engel1_obj, assay = "RNA", layer = "data")[10, ]
+ggplot(data.frame(Engel1_norm), aes(x = Engel1_norm)) +
+  geom_density(color = "blue", fill = "darkgoldenrod1", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+Engel2_counts <- GetAssayData(Engel2_obj, assay = "RNA", layer = "counts")[600, ]
+ggplot(data.frame(Engel2_counts), aes(x = Engel2_counts)) +
+  geom_density(color = "blue", fill = "darkgoldenrod1", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+Engel2_norm <- GetAssayData(Engel2_obj, assay = "RNA", layer = "data")[600, ]
+ggplot(data.frame(Engel2_norm), aes(x = Engel2_norm)) +
+  geom_density(color = "blue", fill = "darkgoldenrod1", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+Engel3_counts <- GetAssayData(Engel3_obj, assay = "RNA", layer = "counts")[1000, ]
+ggplot(data.frame(Engel3_counts), aes(x = Engel3_counts)) +
+  geom_density(color = "blue", fill = "darkgoldenrod1", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+Engel3_norm <- GetAssayData(Engel3_obj, assay = "RNA", layer = "data")[1000, ]
+ggplot(data.frame(Engel3_norm), aes(x = Engel3_norm)) +
+  geom_density(color = "blue", fill = "darkgoldenrod1", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+
+
+Camp1_counts <- GetAssayData(Camp1_obj, assay = "RNA", layer = "counts")[10, ]
+ggplot(data.frame(Camp1_counts), aes(x = Camp1_counts)) +
+  geom_density(color = "blue", fill = "coral", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+Camp1_norm <- GetAssayData(Camp1_obj, assay = "RNA", layer = "data")[10, ]
+ggplot(data.frame(Camp1_norm), aes(x = Camp1_norm)) +
+  geom_density(color = "blue", fill = "coral", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+Camp2_counts <- GetAssayData(Camp2_obj, assay = "RNA", layer = "counts")[600, ]
+ggplot(data.frame(Camp2_counts), aes(x = Camp2_counts)) +
+  geom_density(color = "blue", fill = "coral", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+Camp2_norm <- GetAssayData(Camp2_obj, assay = "RNA", layer = "data")[600, ]
+ggplot(data.frame(Camp2_norm), aes(x = Camp2_norm)) +
+  geom_density(color = "blue", fill = "coral", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+Camp3_counts <- GetAssayData(Camp3_obj, assay = "RNA", layer = "counts")[1000, ]
+ggplot(data.frame(Camp3_counts), aes(x = Camp3_counts)) +
+  geom_density(color = "blue", fill = "coral", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+Camp3_norm <- GetAssayData(Camp3_obj, assay = "RNA", layer = "data")[1000, ]
+ggplot(data.frame(Camp3_norm), aes(x = Camp3_norm)) +
+  geom_density(color = "blue", fill = "coral", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+```
+
+## Import the real scRNAseq data pbmc3k provided by 10X Genomics
+
+```{r, echo=TRUE}
+AvailableData()
+InstallData("pbmc3k")
+?pbmc3k
+citation('pbmc3k.SeuratData')
+pbmc3k <- LoadData("pbmc3k")
+pbmc3k <- NormalizeData(pbmc3k)
+pbmc3k <- FindVariableFeatures(pbmc3k)
+pbmc3k <- ScaleData(pbmc3k)
+
+#Idents(pbmc3k) <- "seurat_annotations"
+#pbmc3k.de.markers <- FindMarkers(pbmc3k, ident.1 = "Memory CD4 T", ident.2 = "NK")
+#sum(pbmc3k.de.markers$p_val_adj <= 0.05)
+
+cd3d_counts <- GetAssayData(pbmc3k, assay = "RNA", layer = "counts")["CD3D", ]
+ggplot(data.frame(cd3d_counts), aes(x = cd3d_counts)) +
+  geom_density(color = "blue", fill = "mistyrose", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+cd3d_normcounts <- GetAssayData(pbmc3k, assay = "RNA", layer = "data")["CD3D", ]
+ggplot(data.frame(cd3d_normcounts), aes(x = cd3d_normcounts)) +
+  geom_density(color = "blue", fill = "mistyrose", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+MEGF6_counts <- GetAssayData(pbmc3k, assay = "RNA", layer = "counts")["MEGF6", ]
+ggplot(data.frame(MEGF6_counts), aes(x = MEGF6_counts)) +
+  geom_density(color = "blue", fill = "mistyrose", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+MEGF6_normcounts <- GetAssayData(pbmc3k, assay = "RNA", layer = "data")["MEGF6", ]
+ggplot(data.frame(MEGF6_normcounts), aes(x = MEGF6_normcounts)) +
+  geom_density(color = "blue", fill = "mistyrose", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+CD2_counts <- GetAssayData(pbmc3k, assay = "RNA", layer = "counts")["CD2", ]
+ggplot(data.frame(CD2_counts), aes(x = CD2_counts)) +
+  geom_density(color = "blue", fill = "mistyrose", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+CD2_normcounts <- GetAssayData(pbmc3k, assay = "RNA", layer = "data")["CD2", ]
+ggplot(data.frame(CD2_normcounts), aes(x = CD2_normcounts)) +
+  geom_density(color = "blue", fill = "mistyrose", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+
+SYF2_counts <- GetAssayData(pbmc3k, assay = "RNA", layer = "counts")["SYF2", ]
+ggplot(data.frame(SYF2_counts), aes(x = SYF2_counts)) +
+  geom_density(color = "blue", fill = "mistyrose", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+SYF2_normcounts <- GetAssayData(pbmc3k, assay = "RNA", layer = "data")["SYF2", ]
+ggplot(data.frame(SYF2_normcounts), aes(x = SYF2_normcounts)) +
+  geom_density(color = "blue", fill = "mistyrose", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+NBPF1_counts <- GetAssayData(pbmc3k, assay = "RNA", layer = "counts")["NBPF1", ]
+ggplot(data.frame(NBPF1_counts), aes(x = NBPF1_counts)) +
+  geom_density(color = "blue", fill = "mistyrose", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+NBPF1_normcounts <- GetAssayData(pbmc3k, assay = "RNA", layer = "data")["NBPF1", ]
+ggplot(data.frame(NBPF1_normcounts), aes(x = NBPF1_normcounts)) +
+  geom_density(color = "blue", fill = "mistyrose", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+
+
+```
+Another real data from https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE120446 from paper https://insight.jci.org/articles/view/124928#F1
+
+GSM3396161_A: Female 59
+GSM3396185_W: Female 28
+
+```{r, echo=TRUE}
+
+file.rename("/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/GSE120221_RAW/GSM3396161_A/GSM3396161_barcodes_A.tsv.gz", "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/GSE120221_RAW/GSM3396161_A/barcodes.tsv.gz")
+file.rename("/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/GSE120221_RAW/GSM3396161_A/GSM3396161_genes_A.tsv.gz", "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/GSE120221_RAW/GSM3396161_A/features.tsv.gz")
+file.rename("/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/GSE120221_RAW/GSM3396161_A/GSM3396161_matrix_A.mtx.gz", "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/GSE120221_RAW/GSM3396161_A/matrix.mtx.gz")
+
+file.rename("/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/GSE120221_RAW/GSM3396185_W/GSM3396185_barcodes_W.tsv.gz", "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/GSE120221_RAW/GSM3396185_W/barcodes.tsv.gz")
+file.rename("/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/GSE120221_RAW/GSM3396185_W/GSM3396185_genes_W.tsv.gz", "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/GSE120221_RAW/GSM3396185_W/features.tsv.gz")
+file.rename("/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/GSE120221_RAW/GSM3396185_W/GSM3396185_matrix_W.mtx.gz", "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/GSE120221_RAW/GSM3396185_W/matrix.mtx.gz")
+
+data_dirs <-
+  c("/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/GSE120221_RAW/GSM3396161_A",
+    "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/GSE120221_RAW/GSM3396185_W"
+    )
+
+data_list <- list()
+for (i in seq_along(data_dirs)){
+  tmp <- Read10X(
+    data_dirs[i],
+    unique.features = TRUE,
+    strip.suffix = FALSE
+  )
+  data_list[i] <- CreateSeuratObject(
+    tmp,
+    assay = "RNA",
+    min.cells = 3,
+    min.features = 200,
+    project = basename(data_dirs[i])
+  )
+}
+
+combined <- merge(
+  x = data_list[[1]],
+  y = data_list[2],
+  add.cell.ids = c("Female_59", "Female_28"),
+  merge.data = TRUE
+)
+
+combined <- JoinLayers(combined)
+table(combined$orig.ident)
+
+rb.genes <-
+  rownames(combined)[grep("^RP[SL][[:digit:]]", rownames(combined))]
+percent.ribo <-
+  colSums(LayerData(combined[rb.genes, ], assay = "RNA", layer = "counts")) / colSums(LayerData(combined, assay = "RNA", layer = "counts")) * 100
+combined <-
+  AddMetaData(combined, percent.ribo, col.name = "percent.ribo")
+
+combined <- PercentageFeatureSet(combined, "^MT-", col.name = "percent.mito")
+
+mito_genes <- rownames(combined)[grep("^MT-", rownames(combined))]
+
+VlnPlot(
+  combined,
+  features = c("nFeature_RNA", "nCount_RNA", "percent.mito", "percent.ribo"),
+  group.by = "orig.ident",
+  ncol = 4,
+  pt.size = 0.1
+)
+
+combined_qc <-
+  subset(
+    combined,
+    subset = 
+      percent.mito < 5 &
+#     percent.ribo < 50 &
+      nFeature_RNA > 200 &
+      nFeature_RNA < 1500 &
+      nCount_RNA < 6000
+  )
+
+VlnPlot(
+  combined_qc,
+  features = c("nFeature_RNA", "nCount_RNA", "percent.mito", "percent.ribo"),
+  group.by = "orig.ident",
+  ncol = 4,
+  pt.size = 0.1
+)
+
+DefaultAssay(combined_qc) <- "RNA"
+combined_qc <- FindVariableFeatures(combined_qc, verbose = FALSE)
+combined_qc <- NormalizeData(combined_qc, verbose = FALSE)
+combined_qc <- ScaleData(combined_qc, verbose = FALSE)
+
+genes <- rownames(combined_qc[["RNA"]])
+head(genes)
+
+#[1] "FO538757.2"       "AP006222.2"       "RP4-669L17.10"    "RP5-857K21.4"     "RP11-206L10.9"    "LINC00115"       
+#   [7] "FAM41C"           "RP11-54O7.1"      "SAMD11"           "NOC2L"            "KLHL17"           "PLEKHN1"      
+#  [13] "HES4"             "ISG15"            "AGRN"             "C1orf159"         "TTLL10"           "TNFRSF18"      
+#  [19] "TNFRSF4"          "SDF4"             "B3GALT6"          "FAM132A"          "RP5-902P8.12"     "UBE2J2"        
+#  [25] "SCNN1D"           "ACAP3"            "PUSL1"            "CPSF3L"           "CPTP"             "TAS1R3"        
+#  [31] "DVL1"             "MXRA8"            "AURKAIP1"         "CCNL2"            "MRPL20"           "RP4-758J18.13"
+#  [37] "ANKRD65"          "VWA1"             "ATAD3C"           "ATAD3B"           "ATAD3A"           "SSU72"        
+#  [43] "RP5-832C2.5"      "C1orf233"         "RP11-345P4.9"     "MIB2"             "MMP23B"           "CDK11B"        
+#  [49] "RP11-345P4.10"    "SLC35E2B"         "RP11-345P4.7"     "CDK11A"           "SLC35E2"          "NADK"         
+#  [55] "GNB1"             "RP1-140A9.1"      "TMEM52"           "CFAP74"           "PRKCZ"            "RP5-892K4.1"   
+#  [61] "RP11-181G12.2"    "FAAP20"           "SKI"              "MORN1"            "RER1"             "PEX10"         
+#  [67] "PLCH2"            "PANK4"            "HES5"             "RP3-395M20.12"    "RP3-395M20.8"     "TNFRSF14"      
+#  [73] "RP3-395M20.9"     "FAM213B"          "MMEL1"            "TTC34"            "LINC00982"        "PRDM16"        
+#  [79] "ARHGEF16"         "MEGF6"            "TPRG1L"           "WRAP73"           "TP73-AS1"         "SMIM1"  
+
+AP006222.2_counts <- GetAssayData(combined_qc, assay = "RNA", layer = "counts")["AP006222.2", ]
+ggplot(data.frame(AP006222.2_counts), aes(x = AP006222.2_counts)) +
+  geom_density(color = "blue", fill = "mistyrose", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+AP006222.2_normcounts <- GetAssayData(combined_qc, assay = "RNA", layer = "data")["AP006222.2", ]
+ggplot(data.frame(AP006222.2_normcounts), aes(x = AP006222.2_normcounts)) +
+  geom_density(color = "blue", fill = "mistyrose", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+CDK11A_counts <- GetAssayData(combined_qc, assay = "RNA", layer = "counts")["CDK11A", ]
+ggplot(data.frame(CDK11A_counts), aes(x = CDK11A_counts)) +
+  geom_density(color = "blue", fill = "mistyrose", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+CDK11A_normcounts <- GetAssayData(combined_qc, assay = "RNA", layer = "data")["CDK11A", ]
+ggplot(data.frame(CDK11A_normcounts), aes(x = CDK11A_normcounts)) +
+  geom_density(color = "blue", fill = "mistyrose", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+MEGF6_counts <- GetAssayData(combined_qc, assay = "RNA", layer = "counts")["MEGF6", ]
+ggplot(data.frame(MEGF6_counts), aes(x = MEGF6_counts)) +
+  geom_density(color = "blue", fill = "mistyrose", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+MEGF6_normcounts <- GetAssayData(combined_qc, assay = "RNA", layer = "data")["MEGF6", ]
+ggplot(data.frame(MEGF6_normcounts), aes(x = MEGF6_normcounts)) +
+  geom_density(color = "blue", fill = "mistyrose", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+CD2_counts <- GetAssayData(combined_qc, assay = "RNA", layer = "counts")["CD2", ]
+ggplot(data.frame(CD2_counts), aes(x = CD2_counts)) +
+  geom_density(color = "blue", fill = "mistyrose", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+CD2_normcounts <- GetAssayData(combined_qc, assay = "RNA", layer = "data")["CD2", ]
+ggplot(data.frame(CD2_normcounts), aes(x = CD2_normcounts)) +
+  geom_density(color = "blue", fill = "mistyrose", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+CD53_counts <- GetAssayData(combined_qc, assay = "RNA", layer = "counts")["CD53", ]
+ggplot(data.frame(CD53_counts), aes(x = CD53_counts)) +
+  geom_density(color = "blue", fill = "mistyrose", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+CD53_normcounts <- GetAssayData(combined_qc, assay = "RNA", layer = "data")["CD53", ]
+ggplot(data.frame(CD53_normcounts), aes(x = CD53_normcounts)) +
+  geom_density(color = "blue", fill = "mistyrose", alpha = 0.5) +
+  labs(title = "",
+       x = "",
+       y = "Density") +
+  theme_minimal()
+
+```
+
