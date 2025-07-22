@@ -1,0 +1,587 @@
+---
+title: "Simulation with 800 cells and 2000 genes and 400 DGEs"
+author: "Dongmei Li"
+date: "2024-10-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(Seurat)
+library(pROC)
+library(reshape2)
+library(PRROC)
+#library(yardstick)
+#library(tibble)
+```
+
+```{r simulation}
+## Define the number of simulations or batches
+#num_simulations <- 10  # Adjust the number of simulations as needed
+
+setwd("/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports")
+subset_num <- 2000
+up_num <- subset_num * 0.1
+down_num <- subset_num * 0.1
+sig_num <- up_num + down_num
+normal_num <- subset_num - up_num - down_num
+#num_cells <- 400. ## Take values of 400 or 2000
+num_cells <- 400
+
+
+# open the data
+
+total <- 20
+
+wilcox.r <- wilcox_limma.r <- bimod.r <- roc.r <- t.r <- matrix(NA, nrow=8, ncol=total)
+negbinom.r <- poisson.r <- LR.r <- MAST.r <- DESeq2.r <- matrix(NA, nrow=8, ncol=total)
+rownames(wilcox.r) <- rownames(wilcox_limma.r) <- rownames(bimod.r) <- rownames(roc.r) <- rownames(t.r) <- c("Sparsity", "TotalRejection", "FDR", "Sensitivity", "Specificity", "Accuracy", "AUC", "AUPRC")
+rownames(negbinom.r) <- rownames(poisson.r) <- rownames(LR.r) <- rownames(MAST.r) <- rownames(DESeq2.r) <- c("Sparsity", "TotalRejection", "FDR", "Sensitivity", "Specificity", "Accuracy", "AUC", "AUPRC")
+
+
+sim <- 1
+
+while (sim <= total)
+{
+  count_matrix_file <- paste0("Engel_param_preset_Data/Data_800_cell_2000_gene_up_200_down_200/", "count_matrix_", sim, "_cell_num_", num_cells, "_subset_num_",       subset_num, "_up_", up_num, "_down_", down_num, ".csv")
+  count_matrix <- read.csv(count_matrix_file, header = TRUE)
+  seurat_obj <- CreateSeuratObject(counts = count_matrix)
+  seurat_obj <- NormalizeData(seurat_obj)
+  seurat_obj <- FindVariableFeatures(seurat_obj)
+  seurat_obj <- ScaleData(seurat_obj)
+  #seurat_obj <- RunPCA(seurat_obj)
+  group <- as.factor(c(rep(1, num_cells), rep(0, num_cells)))
+  Idents(seurat_obj) <- group
+  
+  truev <- c(rep(0, subset_num))
+  truev[1:sig_num] <- 1
+
+  ## wilcox" : Identifies differentially expressed genes between two groups of cells using a Wilcoxon Rank Sum test (default); will use a fast implementation by Presto if installed
+  sim.wilcox <- FindMarkers(seurat_obj, ident.1 = "1", ident.2 = "0", test.use = "wilcox")
+  reject.wilcox <- which(sim.wilcox$p_val_adj <= 0.05)
+  wilcox.v <- rep(0, subset_num)
+  wilcox.v[reject.wilcox] <- 1
+  a.wilcox <- table(wilcox.v, truev)
+    
+    if (dim(a.wilcox)[1] == 2) {
+      wilcox.r[1, sim] <- sum(count_matrix == 0)/(subset_num*num_cells*2)
+      wilcox.r[2, sim] <- sum(sim.wilcox$p_val_adj <= 0.05, na.rm = TRUE)
+      wilcox.r[3, sim] <- a.wilcox[2, 1]/(a.wilcox[2,1]+a.wilcox[2,2])
+      wilcox.r[4, sim] <- a.wilcox[2, 2]/sig_num
+      wilcox.r[5, sim] <- a.wilcox[1, 1]/(a.wilcox[1,1]+a.wilcox[2,1])
+      wilcox.r[6, sim] <- (a.wilcox[1, 1]+a.wilcox[2,2])/subset_num
+      roc.wilcox <- roc(truev, wilcox.v)
+      wilcox.r[7, sim] <- as.numeric(roc.wilcox$auc)
+      # AUPRC data
+      #AUPRC_data <- tibble(truth = factor(truev), estimate = wilcox.v)
+      # Calculate AUPRC
+      #wilcox.r[8, sim] <- 1-as.numeric(pr_auc(AUPRC_data, truth, estimate)$.estimate)
+      pr <- pr.curve(scores.class0 = wilcox.v[truev == 1], scores.class1 = wilcox.v[truev == 0], curve = TRUE)
+      wilcox.r[8, sim] <-as.numeric(pr$auc.integral)
+    }
+     else {
+      wilcox.r[1, sim] <- sum(count_matrix == 0)/(subset_num*num_cells*2)
+      wilcox.r[2, sim] <- sum(sim.wilcox$p_val_adj <= 0.05, na.rm = TRUE)
+      wilcox.r[3, sim] <- 0
+      wilcox.r[4, sim] <- 0
+      wilcox.r[5, sim] <- 1
+      wilcox.r[6, sim] <- a.wilcox[1, 1]/subset_num
+      roc.wilcox <- roc(truev, wilcox.v)
+      wilcox.r[7, sim] <- as.numeric(roc.wilcox$auc)
+      # AUPRC data
+      #AUPRC_data <- tibble(truth = factor(truev), estimate = wilcox.v)
+      # Calculate AUPRC
+      #wilcox.r[8, sim] <- 1-as.numeric(pr_auc(AUPRC_data, truth, estimate)$.estimate)
+      pr <- pr.curve(scores.class0 = wilcox.v[truev == 1], scores.class1 = wilcox.v[truev == 0], curve = TRUE)
+      wilcox.r[8, sim] <-as.numeric(pr$auc.integral)
+     }
+## "wilcox_limma" : Identifies differentially expressed genes between two groups of cells using the limma implementation of the Wilcoxon Rank Sum test; set this option to reproduce results from Seurat v4
+  sim.wilcox_limma <- FindMarkers(seurat_obj, ident.1 = "1", ident.2 = "0", test.use = "wilcox_limma")
+  reject.wilcox_limma <- which(sim.wilcox_limma$p_val_adj <= 0.05)
+  wilcox_limma.v <- rep(0, subset_num)
+  wilcox_limma.v[reject.wilcox_limma] <- 1
+  a.wilcox_limma <- table(wilcox_limma.v, truev)
+    
+    if (dim(a.wilcox_limma)[1] == 2) {
+      wilcox_limma.r[1, sim] <- sum(count_matrix == 0)/(subset_num*num_cells*2)
+      wilcox_limma.r[2, sim] <- sum(sim.wilcox_limma$p_val_adj <= 0.05, na.rm = TRUE)
+      wilcox_limma.r[3, sim] <- a.wilcox_limma[2, 1]/(a.wilcox_limma[2,1]+a.wilcox_limma[2,2])
+      wilcox_limma.r[4, sim] <- a.wilcox_limma[2, 2]/sig_num
+      wilcox_limma.r[5, sim] <- a.wilcox_limma[1, 1]/(a.wilcox_limma[1,1]+a.wilcox_limma[2,1])
+      wilcox_limma.r[6, sim] <- (a.wilcox_limma[1, 1]+a.wilcox_limma[2,2])/subset_num
+      roc.wilcox_limma <- roc(truev, wilcox_limma.v)
+      wilcox_limma.r[7, sim] <- as.numeric(roc.wilcox_limma$auc)
+      # AUPRC data
+      #AUPRC_data <- tibble(truth = factor(truev), estimate = wilcox_limma.v)
+      # Calculate AUPRC
+      #wilcox_limma.r[8, sim] <- 1-as.numeric(pr_auc(AUPRC_data, truth, estimate)$.estimate)
+      pr <- pr.curve(scores.class0 = wilcox_limma.v[truev == 1], scores.class1 = wilcox_limma.v[truev == 0], curve = TRUE)
+      wilcox_limma.r[8, sim] <-as.numeric(pr$auc.integral)
+    }
+     else {
+      wilcox_limma.r[1, sim] <- sum(count_matrix == 0)/(subset_num*num_cells*2)
+      wilcox_limma.r[2, sim] <- sum(sim.wilcox_limma$p_val_adj <= 0.05, na.rm = TRUE)
+      wilcox_limma.r[3, sim] <- 0
+      wilcox_limma.r[4, sim] <- 0
+      wilcox_limma.r[5, sim] <- 1
+      wilcox_limma.r[6, sim] <- a.wilcox_limma[1, 1]/subset_num
+      roc.wilcox_limma <- roc(truev, wilcox_limma.v)
+      wilcox_limma.r[7, sim] <- as.numeric(roc.wilcox_limma$auc)
+      # AUPRC data
+      #AUPRC_data <- tibble(truth = factor(truev), estimate = wilcox_limma.v)
+      # Calculate AUPRC
+      #wilcox_limma.r[8, sim] <- 1-as.numeric(pr_auc(AUPRC_data, truth, estimate)$.estimate)
+      pr <- pr.curve(scores.class0 = wilcox_limma.v[truev == 1], scores.class1 = wilcox_limma.v[truev == 0], curve = TRUE)
+      wilcox_limma.r[8, sim] <-as.numeric(pr$auc.integral)
+     }
+## "bimod" : Likelihood-ratio test for single cell gene expression, (McDavid et al., Bioinformatics, 2013)
+  sim.bimod <- FindMarkers(seurat_obj, ident.1 = "1", ident.2 = "0", test.use = "bimod")
+  reject.bimod <- which(sim.bimod$p_val_adj <= 0.05)
+  bimod.v <- rep(0, subset_num)
+  bimod.v[reject.bimod] <- 1
+  a.bimod <- table(bimod.v, truev)
+    
+    if (dim(a.bimod)[1] == 2) {
+      bimod.r[1, sim] <- sum(count_matrix == 0)/(subset_num*num_cells*2)
+      bimod.r[2, sim] <- sum(sim.bimod$p_val_adj <= 0.05, na.rm = TRUE)
+      bimod.r[3, sim] <- a.bimod[2, 1]/(a.bimod[2,1]+a.bimod[2,2])
+      bimod.r[4, sim] <- a.bimod[2, 2]/sig_num
+      bimod.r[5, sim] <- a.bimod[1, 1]/(a.bimod[1,1]+a.bimod[2,1])
+      bimod.r[6, sim] <- (a.bimod[1, 1]+a.bimod[2,2])/subset_num
+      roc.bimod <- roc(truev, bimod.v)
+      bimod.r[7, sim] <- as.numeric(roc.bimod$auc)
+      # AUPRC data
+      #AUPRC_data <- tibble(truth = factor(truev), estimate = bimod.v)
+      # Calculate AUPRC
+      #bimod.r[8, sim] <- 1-as.numeric(pr_auc(AUPRC_data, truth, estimate)$.estimate)
+      pr <- pr.curve(scores.class0 = bimod.v[truev == 1], scores.class1 = bimod.v[truev == 0], curve = TRUE)
+      bimod.r[8, sim] <- as.numeric(pr$auc.integral)
+    }
+     else {
+      bimod.r[1, sim] <- sum(count_matrix == 0)/(subset_num*num_cells*2)
+      bimod.r[2, sim] <- sum(sim.bimod$p_val_adj <= 0.05, na.rm = TRUE)
+      bimod.r[3, sim] <- 0
+      bimod.r[4, sim] <- 0
+      bimod.r[5, sim] <- 1
+      bimod.r[6, sim] <- a.bimod[1, 1]/subset_num
+      roc.bimod <- roc(truev, bimod.v)
+      bimod.r[7, sim] <- as.numeric(roc.bimod$auc)
+      # AUPRC data
+      #AUPRC_data <- tibble(truth = factor(truev), estimate = bimod.v)
+      # Calculate AUPRC
+      #bimod.r[8, sim] <- 1-as.numeric(pr_auc(AUPRC_data, truth, estimate)$.estimate)
+      pr <- pr.curve(scores.class0 = bimod.v[truev == 1], scores.class1 = bimod.v[truev == 0], curve = TRUE)
+      bimod.r[8, sim] <- as.numeric(pr$auc.integral)
+     }
+## "roc" : Identifies 'markers' of gene expression using ROC analysis. For each gene, evaluates (using AUC) a classifier built on that gene alone, to classify between two groups of cells. An AUC value of 1 means that expression values for this gene alone can perfectly classify the two groupings (i.e. Each of the cells in cells.1 exhibit a higher level than each of the cells in cells.2). An AUC value of 0 also means there is perfect classification, but in the other direction. A value of 0.5 implies that the gene has no predictive power to classify the two groups. Returns a 'predictive power' (abs(AUC-0.5) * 2) ranked matrix of putative differentially expressed genes.
+  sim.roc <- FindMarkers(seurat_obj, ident.1 = "1", ident.2 = "0", test.use = "roc")
+  reject.roc <- which(sim.roc$p_val_adj <= 0.05)
+  roc.v <- rep(0, subset_num)
+  roc.v[reject.roc] <- 1
+  a.roc <- table(roc.v, truev)
+    
+    if (dim(a.roc)[1] == 2) {
+      roc.r[1, sim] <- sum(count_matrix == 0)/(subset_num*num_cells*2)
+      roc.r[2, sim] <- sum(sim.roc$p_val_adj <= 0.05, na.rm = TRUE)
+      roc.r[3, sim] <- a.roc[2, 1]/(a.roc[2,1]+a.roc[2,2])
+      roc.r[4, sim] <- a.roc[2, 2]/sig_num
+      roc.r[5, sim] <- a.roc[1, 1]/(a.roc[1,1]+a.roc[2,1])
+      roc.r[6, sim] <- (a.roc[1, 1]+a.roc[2,2])/subset_num
+      roc.roc <- roc(truev, roc.v)
+      roc.r[7, sim] <- as.numeric(roc.roc$auc)
+      # AUPRC data
+      #AUPRC_data <- tibble(truth = factor(truev), estimate = roc.v)
+      # Calculate AUPRC
+      #roc.r[8, sim] <- 1-as.numeric(pr_auc(AUPRC_data, truth, estimate)$.estimate)
+      pr <- pr.curve(scores.class0 = roc.v[truev == 1], scores.class1 = roc.v[truev == 0], curve = TRUE)
+      roc.r[8, sim] <- as.numeric(pr$auc.integral)
+    }
+     else {
+      roc.r[1, sim] <- sum(count_matrix == 0)/(subset_num*num_cells*2)
+      roc.r[2, sim] <- sum(sim.roc$p_val_adj <= 0.05, na.rm = TRUE)
+      roc.r[3, sim] <- 0
+      roc.r[4, sim] <- 0
+      roc.r[5, sim] <- 1
+      roc.r[6, sim] <- a.roc[1, 1]/subset_num
+      roc.roc <- roc(truev, roc.v)
+      roc.r[7, sim] <- as.numeric(roc.roc$auc)
+      # AUPRC data
+      #AUPRC_data <- tibble(truth = factor(truev), estimate = roc.v)
+      # Calculate AUPRC
+      #roc.r[8, sim] <- 1-as.numeric(pr_auc(AUPRC_data, truth, estimate)$.estimate)
+      pr <- pr.curve(scores.class0 = roc.v[truev == 1], scores.class1 = roc.v[truev == 0], curve = TRUE)
+      roc.r[8, sim] <- as.numeric(pr$auc.integral)
+     }
+  
+  ## "t" : Identify differentially expressed genes between two groups of cells using the Student's t-test.
+  sim.t <- FindMarkers(seurat_obj, ident.1 = "1", ident.2 = "0", test.use = "t")
+  reject.t <- which(sim.t$p_val_adj <= 0.05)
+  t.v <- rep(0, subset_num)
+  t.v[reject.t] <- 1
+  a.t <- table(t.v, truev)
+    
+    if (dim(a.t)[1] == 2) {
+      t.r[1, sim] <- sum(count_matrix == 0)/(subset_num*num_cells*2)
+      t.r[2, sim] <- sum(sim.t$p_val_adj <= 0.05, na.rm = TRUE)
+      t.r[3, sim] <- a.t[2, 1]/(a.t[2,1]+a.t[2,2])
+      t.r[4, sim] <- a.t[2, 2]/sig_num
+      t.r[5, sim] <- a.t[1, 1]/(a.t[1,1]+a.t[2,1])
+      t.r[6, sim] <- (a.t[1, 1]+a.t[2,2])/subset_num
+      t.roc <- roc(truev, t.v)
+      t.r[7, sim] <- as.numeric(t.roc$auc)
+      # AUPRC data
+      #AUPRC_data <- tibble(truth = factor(truev), estimate = t.v)
+      # Calculate AUPRC
+      #t.r[8, sim] <- 1-as.numeric(pr_auc(AUPRC_data, truth, estimate)$.estimate)
+      pr <- pr.curve(scores.class0 = t.v[truev == 1], scores.class1 = t.v[truev == 0], curve = TRUE)
+      t.r[8, sim] <- as.numeric(pr$auc.integral)
+    }
+     else {
+      t.r[1, sim] <- sum(count_matrix == 0)/(subset_num*num_cells*2)
+      t.r[2, sim] <- sum(sim.t$p_val_adj <= 0.05, na.rm = TRUE)
+      t.r[3, sim] <- 0
+      t.r[4, sim] <- 0
+      t.r[5, sim] <- 1
+      t.r[6, sim] <- a.t[1, 1]/subset_num
+      t.roc <- roc(truev, t.v)
+      t.r[7, sim] <- as.numeric(t.roc$auc)
+      # AUPRC data
+      #AUPRC_data <- tibble(truth = factor(truev), estimate = t.v)
+      # Calculate AUPRC
+      #t.r[8, sim] <- 1-as.numeric(pr_auc(AUPRC_data, truth, estimate)$.estimate)
+      pr <- pr.curve(scores.class0 = t.v[truev == 1], scores.class1 = t.v[truev == 0], curve = TRUE)
+      t.r[8, sim] <- as.numeric(pr$auc.integral)
+     }
+  
+## "negbinom" : Identifies differentially expressed genes between two groups of cells using a negative binomial generalized linear model. Use only for UMI-based datasets
+  sim.negbinom <- FindMarkers(seurat_obj, ident.1 = "1", ident.2 = "0", test.use = "negbinom")
+  reject.negbinom <- which(sim.negbinom$p_val_adj <= 0.05)
+  negbinom.v <- rep(0, subset_num)
+  negbinom.v[reject.negbinom] <- 1
+  a.negbinom <- table(negbinom.v, truev)
+    
+    if (dim(a.negbinom)[1] == 2) {
+      negbinom.r[1, sim] <- sum(count_matrix == 0)/(subset_num*num_cells*2)
+      negbinom.r[2, sim] <- sum(sim.negbinom$p_val_adj <= 0.05, na.rm = TRUE)
+      negbinom.r[3, sim] <- a.negbinom[2, 1]/(a.negbinom[2,1]+a.negbinom[2,2])
+      negbinom.r[4, sim] <- a.negbinom[2, 2]/sig_num
+      negbinom.r[5, sim] <- a.negbinom[1, 1]/(a.negbinom[1,1]+a.negbinom[2,1])
+      negbinom.r[6, sim] <- (a.negbinom[1, 1]+a.negbinom[2,2])/subset_num
+      roc.negbinom <- roc(truev, negbinom.v)
+      negbinom.r[7, sim] <- as.numeric(roc.negbinom$auc)
+      # AUPRC data
+      #AUPRC_data <- tibble(truth = factor(truev), estimate = negbinom.v)
+      # Calculate AUPRC
+      #negbinom.r[8, sim] <- 1-as.numeric(pr_auc(AUPRC_data, truth, estimate)$.estimate)
+      pr <- pr.curve(scores.class0 = negbinom.v[truev == 1], scores.class1 = negbinom.v[truev == 0], curve = TRUE)
+      negbinom.r[8, sim] <- as.numeric(pr$auc.integral)
+    }
+     else {
+      negbinom.r[1, sim] <- sum(count_matrix == 0)/(subset_num*num_cells*2)
+      negbinom.r[2, sim] <- sum(sim.negbinom$p_val_adj <= 0.05, na.rm = TRUE)
+      negbinom.r[3, sim] <- 0
+      negbinom.r[4, sim] <- 0
+      negbinom.r[5, sim] <- 1
+      negbinom.r[6, sim] <- a.negbinom[1, 1]/subset_num
+      roc.negbinom <- roc(truev, negbinom.v)
+      negbinom.r[7, sim] <- as.numeric(roc.negbinom$auc)
+      # AUPRC data
+      #AUPRC_data <- tibble(truth = factor(truev), estimate = negbinom.v)
+      # Calculate AUPRC
+      #negbinom.r[8, sim] <- 1-as.numeric(pr_auc(AUPRC_data, truth, estimate)$.estimate)
+      pr <- pr.curve(scores.class0 = negbinom.v[truev == 1], scores.class1 = negbinom.v[truev == 0], curve = TRUE)
+      negbinom.r[8, sim] <- as.numeric(pr$auc.integral)
+     }
+  
+## "poisson" : Identifies differentially expressed genes between two groups of cells using a poisson generalized linear model. Use only for UMI-based datasets
+  sim.poisson <- FindMarkers(seurat_obj, ident.1 = "1", ident.2 = "0", test.use = "poisson")
+  reject.poisson <- which(sim.poisson$p_val_adj <= 0.05)
+  poisson.v <- rep(0, subset_num)
+  poisson.v[reject.poisson] <- 1
+  a.poisson <- table(poisson.v, truev)
+    
+    if (dim(a.poisson)[1] == 2) {
+      poisson.r[1, sim] <- sum(count_matrix == 0)/(subset_num*num_cells*2)
+      poisson.r[2, sim] <- sum(sim.poisson$p_val_adj <= 0.05, na.rm = TRUE)
+      poisson.r[3, sim] <- a.poisson[2, 1]/(a.poisson[2,1]+a.poisson[2,2])
+      poisson.r[4, sim] <- a.poisson[2, 2]/sig_num
+      poisson.r[5, sim] <- a.poisson[1, 1]/(a.poisson[1,1]+a.poisson[2,1])
+      poisson.r[6, sim] <- (a.poisson[1, 1]+a.poisson[2,2])/subset_num
+      roc.poisson <- roc(truev, poisson.v)
+      poisson.r[7, sim] <- as.numeric(roc.poisson$auc)
+      # AUPRC data
+      #AUPRC_data <- tibble(truth = factor(truev), estimate = poisson.v)
+      # Calculate AUPRC
+      #poisson.r[8, sim] <- 1-as.numeric(pr_auc(AUPRC_data, truth, estimate)$.estimate)
+      pr <- pr.curve(scores.class0 = poisson.v[truev == 1], scores.class1 = poisson.v[truev == 0], curve = TRUE)
+      poisson.r[8, sim] <-as.numeric(pr$auc.integral)
+    }
+     else {
+      poisson.r[1, sim] <- sum(count_matrix == 0)/(subset_num*num_cells*2)
+      poisson.r[2, sim] <- sum(sim.poisson$p_val_adj <= 0.05, na.rm = TRUE)
+      poisson.r[3, sim] <- 0
+      poisson.r[4, sim] <- 0
+      poisson.r[5, sim] <- 1
+      poisson.r[6, sim] <- a.poisson[1, 1]/subset_num
+      roc.poisson <- roc(truev, poisson.v)
+      poisson.r[7, sim] <- as.numeric(roc.poisson$auc)
+      # AUPRC data
+      #AUPRC_data <- tibble(truth = factor(truev), estimate = poisson.v)
+      # Calculate AUPRC
+      #poisson.r[8, sim] <- 1-as.numeric(pr_auc(AUPRC_data, truth, estimate)$.estimate)
+      pr <- pr.curve(scores.class0 = poisson.v[truev == 1], scores.class1 = poisson.v[truev == 0], curve = TRUE)
+      poisson.r[8, sim] <-as.numeric(pr$auc.integral)
+     }
+ 
+## "LR" : Uses a logistic regression framework to determine differentially expressed genes. Constructs a logistic regression model predicting group membership based on each feature individually and compares this to a null model with a likelihood ratio test. 
+  sim.LR <- FindMarkers(seurat_obj, ident.1 = "1", ident.2 = "0", test.use = "LR")
+  reject.LR <- which(sim.LR$p_val_adj <= 0.05)
+  LR.v <- rep(0, subset_num)
+  LR.v[reject.LR] <- 1
+  a.LR <- table(LR.v, truev)
+    
+    if (dim(a.LR)[1] == 2) {
+      LR.r[1, sim] <- sum(count_matrix == 0)/(subset_num*num_cells*2)
+      LR.r[2, sim] <- sum(sim.LR$p_val_adj <= 0.05, na.rm = TRUE)
+      LR.r[3, sim] <- a.LR[2, 1]/(a.LR[2,1]+a.LR[2,2])
+      LR.r[4, sim] <- a.LR[2, 2]/sig_num
+      LR.r[5, sim] <- a.LR[1, 1]/(a.LR[1,1]+a.LR[2,1])
+      LR.r[6, sim] <- (a.LR[1, 1]+a.LR[2,2])/subset_num
+      roc.LR <- roc(truev, LR.v)
+      LR.r[7, sim] <- as.numeric(roc.LR$auc)
+      # AUPRC data
+      #AUPRC_data <- tibble(truth = factor(truev), estimate = LR.v)
+      # Calculate AUPRC
+      #LR.r[8, sim] <- 1-as.numeric(pr_auc(AUPRC_data, truth, estimate)$.estimate)
+      pr <- pr.curve(scores.class0 = LR.v[truev == 1], scores.class1 = LR.v[truev == 0], curve = TRUE)
+      LR.r[8, sim] <- as.numeric(pr$auc.integral)
+    }
+     else {
+      LR.r[1, sim] <- sum(count_matrix == 0)/(subset_num*num_cells*2)
+      LR.r[2, sim] <- sum(sim.LR$p_val_adj <= 0.05, na.rm = TRUE)
+      LR.r[3, sim] <- 0
+      LR.r[4, sim] <- 0
+      LR.r[5, sim] <- 1
+      LR.r[6, sim] <- a.LR[1, 1]/subset_num
+      roc.LR <- roc(truev, LR.v)
+      LR.r[7, sim] <- as.numeric(roc.LR$auc)
+      # AUPRC data
+      #AUPRC_data <- tibble(truth = factor(truev), estimate = LR.v)
+      # Calculate AUPRC
+      #LR.r[8, sim] <- 1-as.numeric(pr_auc(AUPRC_data, truth, estimate)$.estimate)
+      pr <- pr.curve(scores.class0 = LR.v[truev == 1], scores.class1 = LR.v[truev == 0], curve = TRUE)
+      LR.r[8, sim] <- as.numeric(pr$auc.integral)
+     }
+  
+## "MAST" : Identifies differentially expressed genes between two groups of cells using a hurdle model tailored to scRNA-seq data. Utilizes the MAST package to run the DE testing.  
+  sim.MAST <- FindMarkers(seurat_obj, ident.1 = "1", ident.2 = "0", test.use = "MAST")
+  reject.MAST <- which(sim.MAST$p_val_adj <= 0.05)
+  MAST.v <- rep(0, subset_num)
+  MAST.v[reject.MAST] <- 1
+  a.MAST <- table(MAST.v, truev)
+    
+    if (dim(a.MAST)[1] == 2) {
+      MAST.r[1, sim] <- sum(count_matrix == 0)/(subset_num*num_cells*2)
+      MAST.r[2, sim] <- sum(sim.MAST$p_val_adj <= 0.05, na.rm = TRUE)
+      MAST.r[3, sim] <- a.MAST[2, 1]/(a.MAST[2,1]+a.MAST[2,2])
+      MAST.r[4, sim] <- a.MAST[2, 2]/sig_num
+      MAST.r[5, sim] <- a.MAST[1, 1]/(a.MAST[1,1]+a.MAST[2,1])
+      MAST.r[6, sim] <- (a.MAST[1, 1]+a.MAST[2,2])/subset_num
+      roc.MAST <- roc(truev, MAST.v)
+      MAST.r[7, sim] <- as.numeric(roc.MAST$auc)
+      # AUPRC data
+      #AUPRC_data <- tibble(truth = factor(truev), estimate = MAST.v)
+      # Calculate AUPRC
+      #MAST.r[8, sim] <- 1-as.numeric(pr_auc(AUPRC_data, truth, estimate)$.estimate)
+      pr <- pr.curve(scores.class0 = MAST.v[truev == 1], scores.class1 = MAST.v[truev == 0], curve = TRUE)
+      MAST.r[8, sim] <- as.numeric(pr$auc.integral)
+    }
+     else {
+      MAST.r[1, sim] <- sum(count_matrix == 0)/(subset_num*num_cells*2)
+      MAST.r[2, sim] <- sum(sim.MAST$p_val_adj <= 0.05, na.rm = TRUE)
+      MAST.r[3, sim] <- 0
+      MAST.r[4, sim] <- 0
+      MAST.r[5, sim] <- 1
+      MAST.r[6, sim] <- a.MAST[1, 1]/subset_num
+      roc.MAST <- roc(truev, MAST.v)
+      MAST.r[7, sim] <- as.numeric(roc.MAST$auc)
+      # AUPRC data
+      #AUPRC_data <- tibble(truth = factor(truev), estimate = MAST.v)
+      # Calculate AUPRC
+      #MAST.r[8, sim] <- 1-as.numeric(pr_auc(AUPRC_data, truth, estimate)$.estimate)
+      pr <- pr.curve(scores.class0 = MAST.v[truev == 1], scores.class1 = MAST.v[truev == 0], curve = TRUE)
+      MAST.r[8, sim] <- as.numeric(pr$auc.integral)
+     }
+  
+## "DESeq2" : Identifies differentially expressed genes between two groups of cells based on a model using DESeq2 which uses a negative binomial distribution (Love et al, Genome Biology, 2014).This test does not support pre-filtering of genes based on average difference (or percent detection rate) between cell groups. However, genes may be pre-filtered based on their minimum detection rate (min.pct) across both cell groups. To use this method, please install DESeq2, using the instructions at https://bioconductor.org/packages/release/bioc/html/DESeq2.html
+  sim.DESeq2 <- FindMarkers(seurat_obj, ident.1 = "1", ident.2 = "0", test.use = "DESeq2")
+  reject.DESeq2 <- which(sim.DESeq2$p_val_adj <= 0.05)
+  DESeq2.v <- rep(0, subset_num)
+  DESeq2.v[reject.DESeq2] <- 1
+  a.DESeq2 <- table(DESeq2.v, truev)
+    
+    if (dim(a.DESeq2)[1] == 2) {
+      DESeq2.r[1, sim] <- sum(count_matrix == 0)/(subset_num*num_cells*2)
+      DESeq2.r[2, sim] <- sum(sim.DESeq2$p_val_adj <= 0.05, na.rm = TRUE)
+      DESeq2.r[3, sim] <- a.DESeq2[2, 1]/(a.DESeq2[2,1]+a.DESeq2[2,2])
+      DESeq2.r[4, sim] <- a.DESeq2[2, 2]/sig_num
+      DESeq2.r[5, sim] <- a.DESeq2[1, 1]/(a.DESeq2[1,1]+a.DESeq2[2,1])
+      DESeq2.r[6, sim] <- (a.DESeq2[1, 1]+a.DESeq2[2,2])/subset_num
+      roc.DESeq2 <- roc(truev, DESeq2.v)
+      DESeq2.r[7, sim] <- as.numeric(roc.DESeq2$auc)
+      # AUPRC data
+      #AUPRC_data <- tibble(truth = factor(truev), estimate = DESeq2.v)
+      # Calculate AUPRC
+      #DESeq2.r[8, sim] <- 1-as.numeric(pr_auc(AUPRC_data, truth, estimate)$.estimate)
+      pr <- pr.curve(scores.class0 = DESeq2.v[truev == 1], scores.class1 = DESeq2.v[truev == 0], curve = TRUE)
+      DESeq2.r[8, sim] <- as.numeric(pr$auc.integral)
+    }
+     else {
+      DESeq2.r[1, sim] <- sum(count_matrix == 0)/(subset_num*num_cells*2)
+      DESeq2.r[2, sim] <- sum(sim.DESeq2$p_val_adj <= 0.05, na.rm = TRUE)
+      DESeq2.r[3, sim] <- 0
+      DESeq2.r[4, sim] <- 0
+      DESeq2.r[5, sim] <- 1
+      DESeq2.r[6, sim] <- a.DESeq2[1, 1]/subset_num
+      roc.DESeq2 <- roc(truev, DESeq2.v)
+      DESeq2.r[7, sim] <- as.numeric(roc.DESeq2$auc)
+      # AUPRC data
+      #AUPRC_data <- tibble(truth = factor(truev), estimate = DESeq2.v)
+      # Calculate AUPRC
+      #DESeq2.r[8, sim] <- 1-as.numeric(pr_auc(AUPRC_data, truth, estimate)$.estimate)
+      pr <- pr.curve(scores.class0 = DESeq2.v[truev == 1], scores.class1 = DESeq2.v[truev == 0], curve = TRUE)
+      DESeq2.r[8, sim] <- as.numeric(pr$auc.integral)
+     }
+sim<-sim+1
+}
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r plots, echo=FALSE}
+Sparsity <- cbind(wilcox.r[1, ], wilcox_limma.r[1, ], bimod.r[1, ], roc.r[1, ],  t.r[1, ], negbinom.r[1, ], poisson.r[1, ], LR.r[1, ], MAST.r[1, ], DESeq2.r[1, ])
+colnames(Sparsity) <- c("wilcox", "wilcox_limma", "bimod", "roc", "t", "negbinom", "poisson", "LR", "MAST", "DESeq2")
+write.csv(Sparsity, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_800_cell_2000_gene_up_200_down_200/Sparsity_800_cell_2000_gene_up_200_down_200.csv")
+Sparsity.melt <- melt(Sparsity)
+# Define a vector of colors (one for each variable)
+colors <- c("lightblue", "lightgreen", "lightpink", "lightyellow", "lightgray", 
+            "lightcoral", "lightcyan", "orange", "purple", "turquoise")
+boxplot(value ~ Var2, data = Sparsity.melt, 
+        main = "",
+        xlab = "", ylab = "Sparsity", col = colors[1:nlevels(Sparsity.melt$Var2)], border = "darkblue", xaxt = "n")
+# Add italic x-labels manually
+axis(1, at = 1:nlevels(Sparsity.melt$Var2), 
+     labels = levels(Sparsity.melt$Var2), 
+     las = 2, font = 3)  # font=3 for italic, las=2 for vertical labels (optional)
+
+
+TotalRejection <- cbind(wilcox.r[2, ], wilcox_limma.r[2, ], bimod.r[2, ], roc.r[2, ],  t.r[2, ], negbinom.r[2, ], poisson.r[2, ], LR.r[2, ], MAST.r[2, ], DESeq2.r[2, ])
+colnames(TotalRejection) <- c("wilcox", "wilcox_limma", "bimod", "roc", "t", "negbinom", "poisson", "LR", "MAST", "DESeq2")
+write.csv(TotalRejection, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_800_cell_2000_gene_up_200_down_200/TotalRejection_800_cell_2000_gene_up_200_down_200.csv")
+TotalRejection.melt <- melt(TotalRejection)
+# Define a vector of colors (one for each variable)
+colors <- c("lightblue", "lightgreen", "lightpink", "lightyellow", "lightgray", 
+            "lightcoral", "lightcyan", "orange", "purple", "turquoise")
+boxplot(value ~ Var2, data = TotalRejection.melt, 
+        main = "",
+        xlab = "", ylab = "TotalRejection", col = colors[1:nlevels(TotalRejection.melt$Var2)], border = "darkblue", xaxt = "n")
+# Add italic x-labels manually
+axis(1, at = 1:nlevels(TotalRejection.melt$Var2), 
+     labels = levels(TotalRejection.melt$Var2), 
+     las = 2, font = 3)  # font=3 for italic, las=2 for vertical labels (optional)
+
+FDR <- cbind(wilcox.r[3, ], wilcox_limma.r[3, ], bimod.r[3, ], roc.r[3, ],  t.r[3, ], negbinom.r[3, ], poisson.r[3, ], LR.r[3, ], MAST.r[3, ], DESeq2.r[3, ])
+colnames(FDR) <- c("wilcox", "wilcox_limma", "bimod", "roc", "t", "negbinom", "poisson", "LR", "MAST", "DESeq2")
+write.csv(FDR, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_800_cell_2000_gene_up_200_down_200/FDR_800_cell_2000_gene_up_200_down_200.csv")
+FDR.melt <- melt(FDR)
+# Define a vector of colors (one for each variable)
+colors <- c("lightblue", "lightgreen", "lightpink", "lightyellow", "lightgray", 
+            "lightcoral", "lightcyan", "orange", "purple", "turquoise")
+boxplot(value ~ Var2, data = FDR.melt, 
+        main = "",
+        xlab = "", ylab = "FDR", col = colors[1:nlevels(FDR.melt$Var2)], border = "darkblue", xaxt = "n")
+# Add italic x-labels manually
+axis(1, at = 1:nlevels(FDR.melt$Var2), 
+     labels = levels(FDR.melt$Var2), 
+     las = 2, font = 3)  # font=3 for italic, las=2 for vertical labels (optional)
+
+Sensitivity <- cbind(wilcox.r[4, ], wilcox_limma.r[4, ], bimod.r[4, ], roc.r[4, ],  t.r[4, ], negbinom.r[4, ], poisson.r[4, ], LR.r[4, ], MAST.r[4, ], DESeq2.r[4, ])
+colnames(Sensitivity) <- c("wilcox", "wilcox_limma", "bimod", "roc", "t", "negbinom", "poisson", "LR", "MAST", "DESeq2")
+write.csv(Sensitivity, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_800_cell_2000_gene_up_200_down_200/Sensitivity_800_cell_2000_gene_up_200_down_200.csv")
+Sensitivity.melt <- melt(Sensitivity)
+# Define a vector of colors (one for each variable)
+colors <- c("lightblue", "lightgreen", "lightpink", "lightyellow", "lightgray", 
+            "lightcoral", "lightcyan", "orange", "purple", "turquoise")
+boxplot(value ~ Var2, data = Sensitivity.melt, 
+        main = "",
+        xlab = "", ylab = "Sensitivity", col = colors[1:nlevels(Sensitivity.melt$Var2)], border = "darkblue", xaxt = "n")
+# Add italic x-labels manually
+axis(1, at = 1:nlevels(Sensitivity.melt$Var2), 
+     labels = levels(Sensitivity.melt$Var2), 
+     las = 2, font = 3)  # font=3 for italic, las=2 for vertical labels (optional)
+
+Specificity <- cbind(wilcox.r[5, ], wilcox_limma.r[5, ], bimod.r[5, ], roc.r[5, ],  t.r[5, ], negbinom.r[5, ], poisson.r[5, ], LR.r[5, ], MAST.r[5, ], DESeq2.r[5, ])
+colnames(Specificity) <- c("wilcox", "wilcox_limma", "bimod", "roc", "t", "negbinom", "poisson", "LR", "MAST", "DESeq2")
+write.csv(Specificity, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_800_cell_2000_gene_up_200_down_200/Specificity_800_cell_2000_gene_up_200_down_200.csv")
+Specificity.melt <- melt(Specificity)
+# Define a vector of colors (one for each variable)
+colors <- c("lightblue", "lightgreen", "lightpink", "lightyellow", "lightgray", 
+            "lightcoral", "lightcyan", "orange", "purple", "turquoise")
+boxplot(value ~ Var2, data = Specificity.melt, 
+        main = "",
+        xlab = "", ylab = "Specificity", col = colors[1:nlevels(Specificity.melt$Var2)], border = "darkblue", xaxt = "n")
+# Add italic x-labels manually
+axis(1, at = 1:nlevels(Specificity.melt$Var2), 
+     labels = levels(Specificity.melt$Var2), 
+     las = 2, font = 3)  # font=3 for italic, las=2 for vertical labels (optional)
+
+Accuracy <- cbind(wilcox.r[6, ], wilcox_limma.r[6, ], bimod.r[6, ], roc.r[6, ],  t.r[6, ], negbinom.r[6, ], poisson.r[6, ], LR.r[6, ], MAST.r[6, ], DESeq2.r[6, ])
+colnames(Accuracy) <- c("wilcox", "wilcox_limma", "bimod", "roc", "t", "negbinom", "poisson", "LR", "MAST", "DESeq2")
+write.csv(Accuracy, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_800_cell_2000_gene_up_200_down_200/Accuracy_800_cell_2000_gene_up_200_down_200.csv")
+Accuracy.melt <- melt(Accuracy)
+# Define a vector of colors (one for each variable)
+colors <- c("lightblue", "lightgreen", "lightpink", "lightyellow", "lightgray", 
+            "lightcoral", "lightcyan", "orange", "purple", "turquoise")
+boxplot(value ~ Var2, data = Accuracy.melt, 
+        main = "",
+        xlab = "", ylab = "Accuracy", col = colors[1:nlevels(Accuracy.melt$Var2)], border = "darkblue", xaxt = "n")
+# Add italic x-labels manually
+axis(1, at = 1:nlevels(Accuracy.melt$Var2), 
+     labels = levels(Accuracy.melt$Var2), 
+     las = 2, font = 3)  # font=3 for italic, las=2 for vertical labels (optional)
+
+AUC <- cbind(wilcox.r[7, ], wilcox_limma.r[7, ], bimod.r[7, ], roc.r[7, ],  t.r[7, ], negbinom.r[7, ], poisson.r[7, ], LR.r[7, ], MAST.r[7, ], DESeq2.r[7, ])
+colnames(AUC) <- c("wilcox", "wilcox_limma", "bimod", "roc", "t", "negbinom", "poisson", "LR", "MAST", "DESeq2")
+write.csv(AUC, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_800_cell_2000_gene_up_200_down_200/AUC_800_cell_2000_gene_up_200_down_200.csv")
+AUC.melt <- melt(AUC)
+# Define a vector of colors (one for each variable)
+colors <- c("lightblue", "lightgreen", "lightpink", "lightyellow", "lightgray", 
+            "lightcoral", "lightcyan", "orange", "purple", "turquoise")
+boxplot(value ~ Var2, data = AUC.melt, 
+        main = "",
+        xlab = "", ylab = "AUC", col = colors[1:nlevels(AUC.melt$Var2)], border = "darkblue", xaxt = "n")
+# Add italic x-labels manually
+axis(1, at = 1:nlevels(AUC.melt$Var2), 
+     labels = levels(AUC.melt$Var2), 
+     las = 2, font = 3)  # font=3 for italic, las=2 for vertical labels (optional)
+
+AUPRC <- cbind(wilcox.r[8, ], wilcox_limma.r[8, ], bimod.r[8, ], roc.r[8, ],  t.r[8, ], negbinom.r[8, ], poisson.r[8, ], LR.r[8, ], MAST.r[8, ], DESeq2.r[8, ])
+colnames(AUPRC) <- c("wilcox", "wilcox_limma", "bimod", "roc", "t", "negbinom", "poisson", "LR", "MAST", "DESeq2")
+write.csv(AUPRC, "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Engel_parameter_results/Results_800_cell_2000_gene_up_200_down_200/AUPRC_800_cell_2000_gene_up_200_down_2000.csv")
+AUPRC.melt <- melt(AUPRC)
+# Define a vector of colors (one for each variable)
+colors <- c("lightblue", "lightgreen", "lightpink", "lightyellow", "lightgray", 
+            "lightcoral", "lightcyan", "orange", "purple", "turquoise")
+boxplot(value ~ Var2, data = AUPRC.melt, 
+        main = "",
+        xlab = "", ylab = "AUPRC", col = colors[1:nlevels(AUPRC.melt$Var2)], border = "darkblue", xaxt = "n")
+# Add italic x-labels manually
+axis(1, at = 1:nlevels(AUPRC.melt$Var2), 
+     labels = levels(AUPRC.melt$Var2), 
+     las = 2, font = 3)  # font=3 for italic, las=2 for vertical labels (optional)
+
+```
+
