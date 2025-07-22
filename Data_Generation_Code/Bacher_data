@@ -1,5 +1,5 @@
 ---
-title: "Impact of Sparsity on DGE analysis"
+title: "Comparison of scRNA-seq DGE analysis"
 author: "Dongmei Li"
 date: "2024-10-01"
 output: html_document
