@@ -83,7 +83,7 @@ table(pbmc3k$seurat_annotations)
 
 ```{r, echo=FALSE}
 
-# find all markers distinguishing cluster 5 from clusters 0
+# find all markers distinguishing cluster 5 from clusters 0. Please replace 5 with "NK cells" and replace 0 with "CD14+ Monocytes" when you ran the following code.
 ##wilcox
 de.wilcox <- FindMarkers(pbmc3k, ident.1 = 5, ident.2 = 0, test.use = "wilcox")
 reject.wilcox <- which(de.wilcox$p_val_adj <= 0.05)
@@ -114,7 +114,9 @@ reject.MAST <- which(de.MAST$p_val_adj <= 0.05)
 ## DESeq2
 de.DESeq2 <- FindMarkers(pbmc3k, ident.1 = 5, ident.2 = 0, test.use = "DESeq2")
 reject.DESeq2 <- which(de.DESeq2$p_val_adj <= 0.05)
-  
+
+write.csv(de.DESeq2[reject.DESeq2,], "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/pbmc3k_DESeq2result.csv")
+
 ```
 
 ## Gene enrichment analysis of significant genes from DESeq2 using enrichR
@@ -391,6 +393,8 @@ bonereject.MAST <- which(bone.MAST$p_val_adj <= 0.05)
 ## DESeq2
 bone.DESeq2 <- FindMarkers(cluster0_cells, ident.1 = "GSM3396161_A", ident.2 = "GSM3396185_W", test.use = "DESeq2")
 bonereject.DESeq2 <- which(bone.DESeq2$p_val_adj <= 0.05)
+
+write.csv(bone.DESeq2[bonereject.DESeq2,], "/Users/dli3/Library/CloudStorage/Box-Box/DongmeiLi_Omics_Research/Single_cell_RNAseq_Comparison/Cell_Reports/Real_scRNASeq_data/bone_DESeq2result.csv")
 
 ```
 
